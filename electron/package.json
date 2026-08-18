@@ -1,0 +1,32 @@
+{
+  "name": "nephyrus-vtt-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nephyrus VTT — app desktop (o Mestre hospeda a mesa localmente).",
+  "author": "Nephyrus",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.7.0"
+  },
+  "build": {
+    "appId": "com.nephyrus.vtt",
+    "productName": "Nephyrus VTT",
+    "directories": { "output": "release" },
+    "files": ["dist/**/*"],
+    "extraResources": [
+      { "from": "../backend-dist/nephyrus-host", "to": "backend", "filter": ["**/*"] },
+      { "from": "../frontend-react/dist", "to": "web", "filter": ["**/*"] }
+    ],
+    "win": { "target": "nsis" },
+    "linux": { "target": "AppImage" },
+    "mac": { "target": "dmg" }
+  }
+}

@@ -64,10 +64,11 @@ app.mount("/storage", StaticFiles(directory=settings.STORAGE_DIR), name="storage
 
 
 # Serve o frontend (index.html + js/css). Deve ficar por último para não
-# capturar as rotas de API/WS acima.
-if settings.FRONTEND_DIR.exists():
+# capturar as rotas de API/WS acima. Prefere o build novo (frontend-react/dist).
+_frontend_dir = settings.ACTIVE_FRONTEND_DIR
+if _frontend_dir.exists():
     app.mount(
         "/",
-        StaticFiles(directory=settings.FRONTEND_DIR, html=True),
+        StaticFiles(directory=_frontend_dir, html=True),
         name="frontend",
     )

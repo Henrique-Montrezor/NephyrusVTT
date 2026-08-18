@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     # --- Caminhos ---
     BASE_DIR: Path = BASE_DIR
     FRONTEND_DIR: Path = BASE_DIR / "frontend"
+    # Build do frontend novo (Preact/Vite). Preferido quando existir.
+    FRONTEND_DIST_DIR: Path = BASE_DIR / "frontend-react" / "dist"
     STORAGE_DIR: Path = BASE_DIR / "storage"
     DATA_DIR: Path = BASE_DIR / "data"
 
@@ -53,6 +55,13 @@ class Settings(BaseSettings):
     def DB_URL(self) -> str:
         """URL de conexão do SQLite (arquivo local em data/)."""
         return f"sqlite:///{(self.DATA_DIR / 'neferus.db').as_posix()}"
+
+    @property
+    def ACTIVE_FRONTEND_DIR(self) -> Path:
+        """Frontend a servir: o build novo (dist) se existir, senão o legado."""
+        if (self.FRONTEND_DIST_DIR / "index.html").exists():
+            return self.FRONTEND_DIST_DIR
+        return self.FRONTEND_DIR
 
     def ensure_dirs(self) -> None:
         """Garante que as pastas de storage/dados existam antes de usar."""

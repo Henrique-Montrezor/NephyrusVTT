@@ -1,0 +1,12 @@
+{
+  "name": "nephyrus-vtt",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nephyrus VTT — orquestra o backend (FastAPI), o frontend (Preact/Vite) e o app desktop (Electron).",
+  "scripts": {
+    "dev:web": "npm --prefix frontend-react run dev",
+    "build:web": "npm --prefix frontend-react run build",
+    "dev:electron": "npm --prefix electron start",
+    "dist:electron": "npm run build:web && npm --prefix electron run dist"
+  }
+}

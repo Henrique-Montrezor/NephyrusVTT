@@ -1,17 +1,13 @@
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-
-# Banco de dados e uploads locais do Mestre
-data/
-storage/
-
-# Ambiente
-.env
-
-# Build / empacotamento
+# Build / empacotamento (Python + web + Electron)
 build/
 dist/
+backend-dist/
+release/
+node_modules/
+
+# Logs temporários
+*.log
+
+# Specs do PyInstaller são geradas, exceto a nossa (fonte).
 *.spec
+!nephyrus-host.spec
