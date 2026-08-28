@@ -7,17 +7,25 @@ REM ============================================================
 setlocal
 cd /d "%~dp0"
 
-REM 1) Garante o build do frontend (Preact/Vite) para o backend/app servir.
-if not exist "frontend-react\dist\index.html" (
-  echo [Nephyrus] Compilando o frontend...
-  pushd "frontend-react"
-  call node "node_modules\vite\bin\vite.js" build
+REM 1) Recompila o frontend para nunca servir um bundle antigo incompatível
+REM com o backend atual (por exemplo, o handshake WebSocket anterior ao JWT).
+echo [Nephyrus] Compilando o frontend...
+pushd "frontend-react"
+call node "node_modules\vite\bin\vite.js" build
+if errorlevel 1 (
   popd
+  echo [Nephyrus] Falha ao compilar o frontend.
+  exit /b 1
 )
+popd
 
 REM 2) Compila o processo principal do Electron.
 echo [Nephyrus] Compilando o app desktop...
 call node "electron\node_modules\typescript\bin\tsc" -p "electron\tsconfig.json"
+if errorlevel 1 (
+  echo [Nephyrus] Falha ao compilar o app desktop.
+  exit /b 1
+)
 
 REM 3) Abre a janela do aplicativo (sobe o backend local automaticamente).
 echo [Nephyrus] Abrindo o Nephyrus VTT...

@@ -15,7 +15,10 @@ import http from "node:http";
 const HOST = "127.0.0.1";
 const PORT = 8000;
 const HEALTH_URL = `http://${HOST}:${PORT}/health`;
-const APP_URL = `http://${HOST}:${PORT}/?campaign_id=lobby&user_id=host&is_gm=true`;
+// A identidade da mesa agora vem de uma sessão assinada criada no frontend.
+// Nunca envie campanha, usuário ou papel pela URL: além de inseguro, isso faz
+// clientes antigos tentarem o handshake WebSocket legado.
+const APP_URL = `http://${HOST}:${PORT}/`;
 
 let backend: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;

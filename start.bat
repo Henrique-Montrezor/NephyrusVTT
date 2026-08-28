@@ -4,6 +4,14 @@ REM Cria o venv na primeira execucao, instala dependencias e sobe o servidor.
 
 cd /d "%~dp0"
 
+echo Compilando frontend...
+call npm run build:web
+if errorlevel 1 (
+    echo Falha ao compilar o frontend.
+    pause
+    exit /b 1
+)
+
 if not exist ".venv\Scripts\python.exe" (
     echo Criando ambiente virtual...
     python -m venv .venv
