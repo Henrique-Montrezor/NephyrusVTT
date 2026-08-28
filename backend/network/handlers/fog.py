@@ -15,7 +15,7 @@ import logging
 from backend.network.connection_manager import Client, manager
 from backend.network.handlers import register
 from backend.schemas.scene import FogResetIn, FogRevealIn, FogToggleIn
-from backend.services import fog_service
+from backend.services import fog_service, scene_service
 
 logger = logging.getLogger("neferus.handlers.fog")
 
@@ -32,6 +32,8 @@ async def handle_fog_toggle(client: Client, payload: dict) -> None:
     if not client.is_gm:
         return await _deny(client)
     data = FogToggleIn.model_validate(payload)
+    if not scene_service.scene_belongs_to_campaign(data.scene_id, client.campaign_id):
+        return
     fog = fog_service.set_enabled(data.scene_id, data.enabled)
     if fog is None:
         return
@@ -47,6 +49,8 @@ async def handle_fog_reveal(client: Client, payload: dict) -> None:
     if not client.is_gm:
         return await _deny(client)
     data = FogRevealIn.model_validate(payload)
+    if not scene_service.scene_belongs_to_campaign(data.scene_id, client.campaign_id):
+        return
     changed = fog_service.reveal_cells(data.scene_id, data.cells, data.revealed)
     if not changed:
         return
@@ -69,6 +73,8 @@ async def handle_fog_reset(client: Client, payload: dict) -> None:
     if not client.is_gm:
         return await _deny(client)
     data = FogResetIn.model_validate(payload)
+    if not scene_service.scene_belongs_to_campaign(data.scene_id, client.campaign_id):
+        return
     fog = fog_service.reset(data.scene_id, data.revealed)
     if fog is None:
         return

@@ -1,6 +1,6 @@
 /**
  * Clientes REST (/api). Portados de asset_controller.js e page_controller.js.
- * O `is_gm` vai como query (provisório até o auth JWT).
+ * Todas as chamadas enviam o token de acesso da sessão atual.
  */
 import type { Identity } from "./types";
 
@@ -40,9 +40,13 @@ export class AssetClient {
     this.base = `/api/campaigns/${encodeURIComponent(identity.campaignId)}/assets`;
   }
 
+  private headers(): HeadersInit {
+    return { Authorization: `Bearer ${this.identity.accessToken}` };
+  }
+
   async list(kind: AssetKind | null = null): Promise<AssetOut[]> {
     const url = kind ? `${this.base}?kind=${encodeURIComponent(kind)}` : this.base;
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: this.headers() });
     if (!res.ok) throw new Error(`Falha ao listar assets (${res.status})`);
     return res.json();
   }
@@ -52,8 +56,9 @@ export class AssetClient {
     fd.append("kind", kind);
     fd.append("file", file);
     if (folder) fd.append("folder", folder);
-    const res = await fetch(`${this.base}?is_gm=${this.identity.isGm}`, {
+    const res = await fetch(this.base, {
       method: "POST",
+      headers: this.headers(),
       body: fd,
     });
     if (!res.ok) return readError(res, "Falha no upload");
@@ -61,8 +66,9 @@ export class AssetClient {
   }
 
   async remove(assetId: number): Promise<unknown> {
-    const res = await fetch(`/api/assets/${assetId}?is_gm=${this.identity.isGm}`, {
+    const res = await fetch(`/api/assets/${assetId}`, {
       method: "DELETE",
+      headers: this.headers(),
     });
     if (!res.ok) throw new Error(`Falha ao remover (${res.status})`);
     return res.json();
@@ -72,9 +78,9 @@ export class AssetClient {
     assetId: number,
     patch: { original_name?: string; folder?: string },
   ): Promise<AssetOut> {
-    const res = await fetch(`/api/assets/${assetId}?is_gm=${this.identity.isGm}`, {
+    const res = await fetch(`/api/assets/${assetId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...this.headers() },
       body: JSON.stringify(patch || {}),
     });
     if (!res.ok) return readError(res, "Falha ao atualizar");
@@ -88,22 +94,29 @@ export class PageClient {
     this.base = `/api/campaigns/${encodeURIComponent(identity.campaignId)}/pages`;
   }
 
+  private headers(json = false): HeadersInit {
+    return {
+      Authorization: `Bearer ${this.identity.accessToken}`,
+      ...(json ? { "Content-Type": "application/json" } : {}),
+    };
+  }
+
   async list(): Promise<PageOut[]> {
-    const res = await fetch(this.base);
+    const res = await fetch(this.base, { headers: this.headers() });
     if (!res.ok) throw new Error(`Falha ao listar páginas (${res.status})`);
     return res.json();
   }
 
   async get(pageId: number): Promise<PageOut> {
-    const res = await fetch(`/api/pages/${pageId}`);
+    const res = await fetch(`/api/pages/${pageId}`, { headers: this.headers() });
     if (!res.ok) throw new Error(`Falha ao obter página (${res.status})`);
     return res.json();
   }
 
   async create(data: { title?: string; content?: string; folder?: string } = {}): Promise<PageOut> {
-    const res = await fetch(`${this.base}?is_gm=${this.identity.isGm}`, {
+    const res = await fetch(this.base, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.headers(true),
       body: JSON.stringify(data),
     });
     if (!res.ok) return readError(res, "Falha ao criar página");
@@ -114,9 +127,9 @@ export class PageClient {
     pageId: number,
     patch: { title?: string; content?: string; folder?: string } = {},
   ): Promise<PageOut> {
-    const res = await fetch(`/api/pages/${pageId}?is_gm=${this.identity.isGm}`, {
+    const res = await fetch(`/api/pages/${pageId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: this.headers(true),
       body: JSON.stringify(patch),
     });
     if (!res.ok) return readError(res, "Falha ao salvar página");
@@ -124,8 +137,9 @@ export class PageClient {
   }
 
   async remove(pageId: number): Promise<unknown> {
-    const res = await fetch(`/api/pages/${pageId}?is_gm=${this.identity.isGm}`, {
+    const res = await fetch(`/api/pages/${pageId}`, {
       method: "DELETE",
+      headers: this.headers(),
     });
     if (!res.ok) throw new Error(`Falha ao remover página (${res.status})`);
     return res.json();

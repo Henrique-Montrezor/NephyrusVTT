@@ -36,6 +36,18 @@ def token_hidden_for_players(td: dict) -> bool:
     return bool(td.get("is_hidden")) or td.get("layer") == LAYER_GM
 
 
+def scene_belongs_to_campaign(scene_id: int, campaign_id: str) -> bool:
+    with _session() as db:
+        scene = db.get(Scene, scene_id)
+        return scene is not None and scene.campaign_id == campaign_id
+
+
+def token_belongs_to_campaign(token_id: int, campaign_id: str) -> bool:
+    with _session() as db:
+        token = db.get(Token, token_id)
+        return token is not None and token.scene.campaign_id == campaign_id
+
+
 @contextmanager
 def _session() -> Iterator[Session]:
     db = SessionLocal()

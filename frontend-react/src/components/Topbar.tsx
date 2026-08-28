@@ -1,6 +1,7 @@
-import { connected, theme, toggleTheme } from "@/state/ui-store";
-import { identity } from "@/state/identity";
+import { connected, connectionState, theme, toggleTheme } from "@/state/ui-store";
+import { clearIdentity, identity } from "@/state/identity";
 import { sceneMeta } from "@/state/game-store";
+import { InviteControl } from "./InviteControl";
 
 export function Topbar() {
   const id = identity.value;
@@ -24,11 +25,12 @@ export function Topbar() {
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M9 4 L3 6 V20 L9 18 L15 20 L21 18 V4 L15 6 L9 4Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
           </svg>
-          <span id="scene-name">{sceneMeta.value.name || "Sem cena"}</span>
+          <span id="scene-name">{sceneMeta.value.name || id.campaignName}</span>
         </span>
       </div>
 
       <div class="topbar-right">
+        {id.isGm && <InviteControl />}
         <button class="icon-pill" title="Alternar tema" aria-label="Alternar tema" onClick={() => toggleTheme()}>
           {theme.value === "dark" ? (
             <svg viewBox="0 0 24 24" fill="none">
@@ -42,11 +44,29 @@ export function Topbar() {
           )}
         </button>
         <span class="role-badge" data-gm={String(id.isGm)} title={id.isGm ? "Perfil do mestre" : `Jogador ${id.userId}`}>
-          {id.isGm ? "Mestre" : id.userId}
+          {id.isGm ? "Mestre" : id.displayName}
         </span>
-        <span class="status" data-connected={String(connected.value)} role="status">
-          <span class="dot" aria-hidden="true" /> <span class="status-label">{connected.value ? "Online" : "Offline"}</span>
+        <span class="status" data-connected={String(connected.value)} data-state={connectionState.value} role="status">
+          <span class="dot" aria-hidden="true" /> <span class="status-label">{
+            connectionState.value === "online"
+              ? "Online"
+              : connectionState.value === "reconnecting"
+                ? "Reconectando"
+                : connectionState.value === "connecting"
+                  ? "Conectando"
+                  : "Offline"
+          }</span>
         </span>
+        <button
+          type="button"
+          class="topbar-action topbar-exit"
+          onClick={() => {
+            clearIdentity();
+            window.location.reload();
+          }}
+        >
+          Sair
+        </button>
       </div>
     </header>
   );

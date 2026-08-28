@@ -50,7 +50,11 @@ async def handle_scene_request(client: Client, payload: dict) -> None:
     """
     req = SceneRequestIn.model_validate(payload)
     scene = None
-    if client.is_gm and req.scene_id is not None:
+    if (
+        client.is_gm
+        and req.scene_id is not None
+        and scene_service.scene_belongs_to_campaign(req.scene_id, client.campaign_id)
+    ):
         scene = scene_service.get_scene(req.scene_id)
     if scene is None:
         scene = scene_service.get_or_create_default_scene(client.campaign_id)
@@ -84,6 +88,8 @@ async def handle_scene_rename(client: Client, payload: dict) -> None:
     if not client.is_gm:
         return
     data = SceneRenameIn.model_validate(payload)
+    if not scene_service.scene_belongs_to_campaign(data.scene_id, client.campaign_id):
+        return
     scene_service.rename_scene(data.scene_id, data.name)
     await _send_scene_list(client)
 
@@ -136,6 +142,8 @@ async def handle_grid_update(client: Client, payload: dict) -> None:
         )
         return
     scene_id = int(payload.get("scene_id", 0))
+    if not scene_service.scene_belongs_to_campaign(scene_id, client.campaign_id):
+        return
     grid = scene_service.update_grid(scene_id, GridUpdateIn.model_validate(payload))
     if grid is None:
         return
@@ -155,6 +163,8 @@ async def handle_token_visibility(client: Client, payload: dict) -> None:
         )
         return
     token_id = int(payload.get("token_id", 0))
+    if not scene_service.token_belongs_to_campaign(token_id, client.campaign_id):
+        return
     is_hidden = bool(payload.get("is_hidden", False))
     token = scene_service.set_token_visibility(token_id, is_hidden)
     if token is None:
@@ -194,6 +204,8 @@ async def handle_scene_background(client: Client, payload: dict) -> None:
         )
         return
     scene_id = int(payload.get("scene_id", 0))
+    if not scene_service.scene_belongs_to_campaign(scene_id, client.campaign_id):
+        return
     url = str(payload.get("url", "")).strip()
     if not url:
         return
@@ -219,6 +231,8 @@ async def handle_scene_resize(client: Client, payload: dict) -> None:
         )
         return
     data = SceneResizeIn.model_validate(payload)
+    if not scene_service.scene_belongs_to_campaign(data.scene_id, client.campaign_id):
+        return
     scene = scene_service.resize_scene(data.scene_id, data.width, data.height)
     if scene is None:
         return

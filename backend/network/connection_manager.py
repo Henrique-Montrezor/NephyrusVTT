@@ -26,6 +26,7 @@ class Client:
     websocket: WebSocket
     campaign_id: str
     user_id: str | None = None
+    display_name: str | None = None
     is_gm: bool = False
     # Cena que este cliente está visualizando (para broadcasts por cena).
     scene_id: int | None = None
@@ -45,6 +46,7 @@ class ConnectionManager:
         websocket: WebSocket,
         campaign_id: str,
         user_id: str | None = None,
+        display_name: str | None = None,
         is_gm: bool = False,
     ) -> Client:
         """Aceita o handshake e registra o cliente na sala informada."""
@@ -53,6 +55,7 @@ class ConnectionManager:
             websocket=websocket,
             campaign_id=campaign_id,
             user_id=user_id,
+            display_name=display_name,
             is_gm=is_gm,
         )
         self.rooms[campaign_id].add(client)
@@ -115,7 +118,14 @@ class ConnectionManager:
             uid = client.user_id or "?"
             # Mantém o registro; se qualquer sessão for GM, marca como GM.
             seen[uid] = seen.get(uid, False) or client.is_gm
-        return [{"user_id": uid, "is_gm": is_gm} for uid, is_gm in seen.items()]
+        names: dict[str, str] = {}
+        for client in self.rooms.get(campaign_id, set()):
+            uid = client.user_id or "?"
+            names[uid] = client.display_name or uid
+        return [
+            {"user_id": uid, "display_name": names.get(uid, uid), "is_gm": is_gm}
+            for uid, is_gm in seen.items()
+        ]
 
     async def broadcast(
         self,

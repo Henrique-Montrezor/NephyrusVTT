@@ -18,6 +18,7 @@ function initialTheme(): Theme {
 
 export const theme = signal<Theme>(initialTheme());
 export const connected = signal(false);
+export const connectionState = signal<"connecting" | "online" | "reconnecting" | "offline">("connecting");
 export const activeTab = signal<DockTab>("chat");
 export const dockOpen = signal(false);
 export const sceneList = signal<SceneListItem[]>([]);

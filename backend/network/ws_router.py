@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
 
 from backend.network import handlers
 from backend.network.connection_manager import manager
+from backend.services.auth_service import AuthError, identity_from_token
 
 logger = logging.getLogger("neferus.ws")
 
@@ -39,20 +40,25 @@ async def _broadcast_presence(campaign_id: str) -> None:
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    campaign_id: str = Query(default="lobby"),
-    user_id: str | None = Query(default=None),
-    is_gm: bool = Query(default=False),
+    token: str = Query(default=""),
 ) -> None:
     """Ponto de entrada dos clientes em tempo real.
 
-    A autenticação real (JWT/convite) será validada aqui em fase futura;
-    por ora os parâmetros de query definem sala e identidade.
+    Campanha, participante e papel são derivados do token assinado.
     """
+    try:
+        identity = identity_from_token(token)
+    except AuthError:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="unauthorized")
+        return
+
+    campaign_id = identity.campaign_id
     client = await manager.connect(
         websocket,
         campaign_id=campaign_id,
-        user_id=user_id,
-        is_gm=is_gm,
+        user_id=identity.member_id,
+        display_name=identity.display_name,
+        is_gm=identity.is_gm,
     )
     await _broadcast_presence(campaign_id)
 

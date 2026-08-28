@@ -29,6 +29,9 @@ async def _broadcast_token(client: Client, msg_type: str, token: dict) -> None:
 @register("token:update")
 async def handle_token_update(client: Client, payload: dict) -> None:
     """Atualiza nome/tamanho/camada de um token (dono ou GM)."""
+    token_id = int(payload.get("token_id", 0))
+    if not scene_service.token_belongs_to_campaign(token_id, client.campaign_id):
+        return
     token = scene_service.update_token(
         TokenUpdateIn.model_validate(payload),
         user_id=client.user_id,
@@ -62,8 +65,11 @@ async def handle_token_update(client: Client, payload: dict) -> None:
 
 @register("token:move")
 async def handle_token_move(client: Client, payload: dict) -> None:
+    token_id = int(payload.get("token_id", 0))
+    if not scene_service.token_belongs_to_campaign(token_id, client.campaign_id):
+        return
     token = scene_service.move_token(
-        token_id=int(payload.get("token_id", 0)),
+        token_id=token_id,
         x=float(payload.get("x", 0)),
         y=float(payload.get("y", 0)),
         user_id=client.user_id,
@@ -87,6 +93,8 @@ async def handle_token_add(client: Client, payload: dict) -> None:
         )
         return
     scene_id = int(payload.get("scene_id", 0))
+    if not scene_service.scene_belongs_to_campaign(scene_id, client.campaign_id):
+        return
     data = TokenAddIn.model_validate(payload.get("token", {}))
     token = scene_service.add_token(scene_id, data)
     if token is None:
@@ -107,6 +115,8 @@ async def handle_token_remove(client: Client, payload: dict) -> None:
         )
         return
     token_id = int(payload.get("token_id", 0))
+    if not scene_service.token_belongs_to_campaign(token_id, client.campaign_id):
+        return
     scene_id = scene_service.remove_token(token_id)
     if scene_id is not None:
         await manager.broadcast_scene(

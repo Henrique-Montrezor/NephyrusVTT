@@ -80,6 +80,9 @@ export interface SceneListItem {
 /** Identidade do participante, derivada da URL. */
 export interface Identity {
   campaignId: string;
+  campaignName: string;
   userId: string;
+  displayName: string;
   isGm: boolean;
+  accessToken: string;
 }

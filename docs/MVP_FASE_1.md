@@ -57,11 +57,11 @@ O fluxo deve funcionar tanto em uma instalação self-hosted quanto no serviço 
 - [x] Renderizar cena 2D com câmera e grid
 - [x] Sincronizar tokens, chat, dados, desenho e turnos
 - [x] Upload e uso básico de mapas e assets
-- [ ] Criar tela de entrada com nome do jogador e código da mesa
-- [ ] Criar campanha e gerar link de convite revogável
-- [ ] Separar permissões de mestre e jogador no servidor, sem confiar em query string
-- [ ] Reconectar automaticamente e restaurar o estado após queda de rede
-- [ ] Mostrar estados claros de conexão, reconexão e erro
+- [x] Criar tela de entrada com nome do jogador e código da mesa
+- [x] Criar campanha e gerar link de convite revogável
+- [x] Separar permissões de mestre e jogador no servidor, sem confiar em query string
+- [x] Reconectar automaticamente e restaurar o estado após queda de rede
+- [x] Mostrar estados claros de conexão, reconexão e erro
 
 Critério de aceite: três navegadores entram na mesma campanha, um como mestre e dois como jogadores. Após perder a conexão por 30 segundos, todos retornam ao mesmo estado sem recarregar manualmente.
 
@@ -80,8 +80,8 @@ Critério de aceite: um jogador participa de uma sessão de 60 minutos em um apa
 
 ### P0. Campanhas, identidade e autorização
 
-- [ ] Modelar usuário, campanha, membro, convite e papel
-- [ ] Criar autenticação local simples para self-hosted
+- [x] Modelar campanha, membro, convite e papel
+- [x] Criar autenticação local simples para self-hosted
 - [ ] Criar autenticação por e-mail ou provedor para cloud
 - [ ] Aplicar autorização em todos os handlers HTTP e WebSocket
 - [ ] Isolar assets, cenas e mensagens por campanha

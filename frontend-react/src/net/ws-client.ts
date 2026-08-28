@@ -17,9 +17,7 @@ export interface WsOptions {
 }
 
 export interface WsParams {
-  campaign_id?: string;
-  user_id?: string;
-  is_gm?: boolean | string;
+  token?: string;
   [key: string]: string | boolean | undefined;
 }
 
@@ -53,7 +51,7 @@ export class WsClient {
     return `${proto}://${window.location.host}/ws${suffix}`;
   }
 
-  /** Inicia a conexão. `params` vira query string (campaign_id, user_id, is_gm). */
+  /** Inicia a conexão. O token assinado define a identidade no servidor. */
   connect(params: WsParams = {}): void {
     this.shouldReconnect = true;
     if (Object.keys(params).length > 0) {
@@ -72,7 +70,7 @@ export class WsClient {
     }
     this.socket.addEventListener("open", () => this.onOpen());
     this.socket.addEventListener("message", (ev) => this.onMessage(ev));
-    this.socket.addEventListener("close", () => this.onClose());
+    this.socket.addEventListener("close", (event) => this.onClose(event));
     this.socket.addEventListener("error", (ev) => this.onError(ev));
   }
 
@@ -100,10 +98,15 @@ export class WsClient {
     this.emit(env.type, env.payload ?? {});
   }
 
-  private onClose(): void {
+  private onClose(event: CloseEvent): void {
     this.connected = false;
     this.stopHeartbeat();
-    this.emit("close", {});
+    this.emit("close", { code: event.code, reason: event.reason });
+    if (event.code === 1008) {
+      this.shouldReconnect = false;
+      this.emit("unauthorized", {});
+      return;
+    }
     if (this.shouldReconnect) this.scheduleReconnect();
   }
 
@@ -118,6 +121,7 @@ export class WsClient {
       1000 * 2 ** (this.reconnectAttempts - 1),
     );
     console.info(`[WS] Reconectando em ${delay}ms (tentativa ${this.reconnectAttempts}).`);
+    this.emit("reconnecting", { delay, attempt: this.reconnectAttempts });
     setTimeout(() => {
       if (this.shouldReconnect) this.open();
     }, delay);

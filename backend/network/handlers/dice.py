@@ -33,6 +33,7 @@ async def handle_dice_roll(client: Client, payload: dict) -> None:
 
     out = result.model_dump()
     out["roller_id"] = client.user_id
+    out["roller"] = client.display_name or client.user_id
     out["is_gm"] = client.is_gm
     await manager.broadcast(
         client.campaign_id,

@@ -9,7 +9,6 @@ from backend.models.token import Token
 from backend.models.asset import Asset
 from backend.models.fog import FogCell
 from backend.models.page import Page
+from backend.models.campaign import Campaign, CampaignMember
 
-# Futuro: User, Campaign.
-
-__all__ = ["Scene", "Token", "Asset", "FogCell", "Page"]
+__all__ = ["Scene", "Token", "Asset", "FogCell", "Page", "Campaign", "CampaignMember"]

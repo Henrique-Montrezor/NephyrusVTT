@@ -63,7 +63,7 @@ async def handle_chat(client: Client, payload: dict) -> None:
         {
             "type": "chat",
             "payload": {
-                "user_id": client.user_id,
+                "user_id": client.display_name or client.user_id,
                 "is_gm": client.is_gm,
                 "text": text,
             },

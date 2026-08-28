@@ -6,15 +6,20 @@ antes de entrar no fluxo em tempo real via WebSocket.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from backend.auth import campaign_identity
 from backend.schemas.scene import SceneOut
 from backend.services import scene_service
+from backend.services.auth_service import AuthIdentity
 
 router = APIRouter(prefix="/api", tags=["scene"])
 
 
 @router.get("/campaigns/{campaign_id}/scene", response_model=SceneOut)
-async def get_campaign_scene(campaign_id: str) -> SceneOut:
+async def get_campaign_scene(
+    campaign_id: str,
+    identity: AuthIdentity = Depends(campaign_identity),
+) -> SceneOut:
     """Retorna (ou cria) a cena ativa de uma campanha."""
     return scene_service.get_or_create_default_scene(campaign_id)

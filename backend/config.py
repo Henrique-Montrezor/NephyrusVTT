@@ -16,6 +16,20 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def _persistent_secret_key() -> str:
+    """Mantém sessões válidas entre reinícios no host self-hosted."""
+    data_dir = BASE_DIR / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    secret_file = data_dir / ".auth-secret"
+    if secret_file.exists():
+        value = secret_file.read_text(encoding="utf-8").strip()
+        if len(value) >= 32:
+            return value
+    value = secrets.token_urlsafe(48)
+    secret_file.write_text(value, encoding="utf-8")
+    return value
+
+
 class Settings(BaseSettings):
     """Configurações carregadas de variáveis de ambiente ou de um arquivo .env."""
 
@@ -32,9 +46,10 @@ class Settings(BaseSettings):
     # --- Segurança (JWT) ---
     # Em produção local, defina NEFERUS_SECRET_KEY para manter as sessões
     # válidas entre reinícios. Caso contrário, uma chave temporária é gerada.
-    SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    SECRET_KEY: str = Field(default_factory=_persistent_secret_key)
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24h
+    DATABASE_URL: str | None = None
 
     # --- Caminhos ---
     BASE_DIR: Path = BASE_DIR
@@ -54,7 +69,7 @@ class Settings(BaseSettings):
     @property
     def DB_URL(self) -> str:
         """URL de conexão do SQLite (arquivo local em data/)."""
-        return f"sqlite:///{(self.DATA_DIR / 'neferus.db').as_posix()}"
+        return self.DATABASE_URL or f"sqlite:///{(self.DATA_DIR / 'neferus.db').as_posix()}"
 
     @property
     def ACTIVE_FRONTEND_DIR(self) -> Path:

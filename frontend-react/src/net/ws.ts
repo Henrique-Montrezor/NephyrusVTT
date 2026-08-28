@@ -3,8 +3,8 @@
  * A conexão é iniciada no bootstrap (App) com a identidade da URL.
  */
 import { WsClient } from "./ws-client";
-import { identity } from "@/state/identity";
-import { connected } from "@/state/ui-store";
+import { clearIdentity, identity } from "@/state/identity";
+import { connected, connectionState } from "@/state/ui-store";
 
 export const ws = new WsClient();
 
@@ -17,13 +17,20 @@ export function startWs(): void {
   const id = identity.value;
   ws.on("open", () => {
     connected.value = true;
+    connectionState.value = "online";
   });
   ws.on("close", () => {
     connected.value = false;
+    connectionState.value = "offline";
+  });
+  ws.on("reconnecting", () => {
+    connectionState.value = "reconnecting";
+  });
+  ws.on("unauthorized", () => {
+    clearIdentity();
+    window.location.reload();
   });
   ws.connect({
-    campaign_id: id.campaignId,
-    user_id: id.userId,
-    is_gm: id.isGm,
+    token: id.accessToken,
   });
 }

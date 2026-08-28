@@ -7,6 +7,9 @@ node_modules/
 
 # Logs temporários
 *.log
+__pycache__/
+*.py[cod]
+data/.auth-secret
 
 # Specs do PyInstaller são geradas, exceto a nossa (fonte).
 *.spec
