@@ -1,5 +1,5 @@
 import { useRef } from "preact/hooks";
-import { activeTab } from "@/state/ui-store";
+import { activeTab, dockOpen } from "@/state/ui-store";
 import { ChatPane } from "@/features/chat/ChatPane";
 import { DicePane } from "@/features/dice/DicePane";
 import { TokensPane } from "@/features/tokens/TokensPane";
@@ -8,6 +8,15 @@ import { SharedPane } from "@/features/shared/SharedPane";
 import { LibraryPane } from "@/features/library/LibraryPane";
 
 const DOCK_W_KEY = "nephyrus:dock-width";
+
+const TAB_LABELS = {
+  chat: "Chat",
+  dice: "Dados",
+  tokens: "Tokens",
+  scene: "Cena",
+  shared: "Compartilhados",
+  library: "Biblioteca",
+} as const;
 
 function clampWidth(w: number): number {
   const max = Math.min(1000, Math.max(360, window.innerWidth - 420));
@@ -44,8 +53,21 @@ export function Dock() {
   const tab = activeTab.value;
 
   return (
-    <aside class="dock" id="dock" ref={dockRef} style={initialWidth ? { width: `${initialWidth}px` } : undefined}>
+    <aside
+      class="dock"
+      id="dock"
+      ref={dockRef}
+      data-open={String(dockOpen.value)}
+      aria-label={`Painel de ${TAB_LABELS[tab]}`}
+      style={initialWidth ? { width: `${initialWidth}px` } : undefined}
+    >
       <div class="dock-resizer" title="Arraste para redimensionar" onPointerDown={startResize} />
+      <div class="dock-mobile-head">
+        <strong>{TAB_LABELS[tab]}</strong>
+        <button type="button" class="dock-close" aria-label="Fechar painel" onClick={() => (dockOpen.value = false)}>
+          Fechar
+        </button>
+      </div>
       <div class="dock-body">
         {tab === "chat" && <ChatPane />}
         {tab === "dice" && <DicePane />}

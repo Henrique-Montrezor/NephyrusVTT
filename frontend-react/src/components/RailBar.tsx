@@ -1,4 +1,4 @@
-import { activeTab, type DockTab } from "@/state/ui-store";
+import { activeTab, dockOpen, type DockTab } from "@/state/ui-store";
 import { identity } from "@/state/identity";
 import type { VNode } from "preact";
 
@@ -76,15 +76,26 @@ const TABS: TabDef[] = [
 
 export function RailBar() {
   const isGm = identity.value.isGm;
+  const activateTab = (tab: DockTab) => {
+    if (activeTab.value === tab) {
+      dockOpen.value = !dockOpen.value;
+      return;
+    }
+    activeTab.value = tab;
+    dockOpen.value = true;
+  };
+
   return (
-    <nav class="railbar" role="tablist">
+    <nav class="railbar" role="tablist" aria-label="Painéis da mesa">
       {TABS.filter((t) => !t.gmOnly || isGm).map((t) => (
         <button
           key={t.id}
           class={`tab-btn${activeTab.value === t.id ? " active" : ""}`}
           title={t.label}
           aria-label={t.label}
-          onClick={() => (activeTab.value = t.id)}
+          aria-selected={activeTab.value === t.id}
+          aria-controls="dock"
+          onClick={() => activateTab(t.id)}
         >
           {t.icon}
           <span>{t.label}</span>

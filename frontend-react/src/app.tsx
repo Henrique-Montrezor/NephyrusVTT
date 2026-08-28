@@ -1,5 +1,4 @@
 import { useEffect } from "preact/hooks";
-import { AuroraCanvas } from "@/engine/react/AuroraCanvas";
 import { Topbar } from "@/components/Topbar";
 import { Workspace } from "@/components/Workspace";
 import { ModalHost } from "@/ui/modal";
@@ -14,7 +13,6 @@ export function App() {
 
   return (
     <>
-      <AuroraCanvas />
       <Topbar />
       <Workspace />
       <ModalHost />

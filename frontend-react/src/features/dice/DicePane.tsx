@@ -47,7 +47,7 @@ export function DicePane() {
         <ul class="dice-history">
           {diceHistory.value.map((r) => (
             <li key={r.id}>
-              <strong>{r.total}</strong> — {r.roller} {r.notation ?? r.dice.map((d) => `d${d.sides}`).join("+")}
+              <strong>{r.total}</strong> <span aria-hidden="true">/</span> {r.roller} {r.notation ?? r.dice.map((d) => `d${d.sides}`).join("+")}
               {r.label ? ` (${r.label})` : ""}
             </li>
           ))}

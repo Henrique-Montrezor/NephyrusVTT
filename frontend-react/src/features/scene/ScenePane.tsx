@@ -105,7 +105,7 @@ function GridCard() {
         />
       </label>
       <div class="field">
-        <span>Tamanho do mapa (metros) — atual {Math.round(sceneMeta.value.width)}×{Math.round(sceneMeta.value.height)} px</span>
+        <span>Tamanho do mapa em metros. Atual: {Math.round(sceneMeta.value.width)}×{Math.round(sceneMeta.value.height)} px</span>
         <div class="size-row">
           <input type="number" min={1} step={1} placeholder="larg." value={w || ""} onInput={(e) => setW(Number((e.target as HTMLInputElement).value) || 0)} />
           <span class="times">×</span>

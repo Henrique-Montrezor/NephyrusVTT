@@ -24,7 +24,7 @@ export function Topbar() {
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M9 4 L3 6 V20 L9 18 L15 20 L21 18 V4 L15 6 L9 4Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
           </svg>
-          <span id="scene-name">{sceneMeta.value.name || "—"}</span>
+          <span id="scene-name">{sceneMeta.value.name || "Sem cena"}</span>
         </span>
       </div>
 
@@ -41,11 +41,11 @@ export function Topbar() {
             </svg>
           )}
         </button>
-        <span class="role-badge" data-gm={String(id.isGm)}>
-          {id.isGm ? "Mestre (GM)" : `Jogador: ${id.userId}`}
+        <span class="role-badge" data-gm={String(id.isGm)} title={id.isGm ? "Perfil do mestre" : `Jogador ${id.userId}`}>
+          {id.isGm ? "Mestre" : id.userId}
         </span>
-        <span class="status" data-connected={String(connected.value)}>
-          <span class="dot" /> {connected.value ? "Conectado" : "Desconectado"}
+        <span class="status" data-connected={String(connected.value)} role="status">
+          <span class="dot" aria-hidden="true" /> <span class="status-label">{connected.value ? "Online" : "Offline"}</span>
         </span>
       </div>
     </header>

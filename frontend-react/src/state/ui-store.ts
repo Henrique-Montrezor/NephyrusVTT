@@ -19,6 +19,7 @@ function initialTheme(): Theme {
 export const theme = signal<Theme>(initialTheme());
 export const connected = signal(false);
 export const activeTab = signal<DockTab>("chat");
+export const dockOpen = signal(false);
 export const sceneList = signal<SceneListItem[]>([]);
 export const activeTool = signal<string | null>(null);
 export const openPanel = signal<"fog" | "turn" | "layers" | null>(null);
