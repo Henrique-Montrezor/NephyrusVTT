@@ -6,12 +6,16 @@ import io
 import json
 import re
 import uuid
+import base64
+import textwrap
 from pathlib import Path
 from typing import Any
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PdfReadError
 from pypdf.generic import ArrayObject, DictionaryObject, NameObject
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen import canvas
 from sqlalchemy import select
 
 from backend.config import settings
@@ -22,6 +26,7 @@ from backend.schemas.character_sheet import CharacterSheetOut, SheetFieldOut
 
 MAX_FIELDS = 300
 MAX_VALUE_LENGTH = 20_000
+MAX_IMAGE_BYTES = 1_500_000
 _SAFE_KEY = re.compile(r"[^a-zA-Z0-9_.:-]+")
 
 
@@ -242,7 +247,19 @@ def _clean_value(field_type: str, value: Any) -> Any:
         except (TypeError, ValueError) as exc:
             raise SheetError("campo numérico contém um valor inválido") from exc
     if field_type == "image":
-        raise SheetError("campos de imagem serão habilitados no próximo corte do editor")
+        data_url = str(value or "")
+        if not data_url:
+            return ""
+        match = re.fullmatch(r"data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)", data_url)
+        if not match:
+            raise SheetError("imagem inválida; use PNG, JPEG ou WebP")
+        try:
+            decoded = base64.b64decode(match.group(2), validate=True)
+        except ValueError as exc:
+            raise SheetError("imagem inválida") from exc
+        if len(decoded) > MAX_IMAGE_BYTES:
+            raise SheetError("imagem deve ter no máximo 1,5 MB")
+        return data_url
     return str(value or "")[:MAX_VALUE_LENGTH]
 
 
@@ -303,6 +320,54 @@ def set_field_public(sheet_id: str, field_key: str, public: bool) -> CharacterSh
         return _output(sheet, owner.display_name if owner else "Jogador removido")
 
 
+def update_custom_field(sheet_id: str, field_key: str, patch: dict[str, Any]) -> CharacterSheetOut | None:
+    with SessionLocal() as db:
+        sheet = db.get(CharacterSheet, sheet_id)
+        if sheet is None:
+            return None
+        fields = json.loads(sheet.fields_json)
+        field = next((item for item in fields if item["key"] == field_key), None)
+        if field is None:
+            raise SheetError("campo não encontrado")
+        if field["source"] != "custom":
+            raise SheetError("campos AcroForm não podem ser reposicionados")
+        page = patch.get("page")
+        rect = patch.get("rect")
+        if page is not None and page > sheet.page_count:
+            raise SheetError("página do campo inválida")
+        if rect is not None and any(not 0 <= float(value) <= 100 for value in rect):
+            raise SheetError("posição do campo inválida")
+        for key in ("label", "field_type", "page", "rect", "public"):
+            if patch.get(key) is not None:
+                field[key] = patch[key]
+        sheet.fields_json = json.dumps(fields, ensure_ascii=False)
+        db.commit()
+        db.refresh(sheet)
+        owner = db.get(CampaignMember, sheet.owner_id)
+        return _output(sheet, owner.display_name if owner else "Jogador removido")
+
+
+def delete_custom_field(sheet_id: str, field_key: str) -> CharacterSheetOut | None:
+    with SessionLocal() as db:
+        sheet = db.get(CharacterSheet, sheet_id)
+        if sheet is None:
+            return None
+        fields = json.loads(sheet.fields_json)
+        field = next((item for item in fields if item["key"] == field_key), None)
+        if field is None:
+            raise SheetError("campo não encontrado")
+        if field["source"] != "custom":
+            raise SheetError("campos AcroForm não podem ser removidos")
+        sheet.fields_json = json.dumps([item for item in fields if item["key"] != field_key], ensure_ascii=False)
+        values = json.loads(sheet.values_json)
+        values.pop(field_key, None)
+        sheet.values_json = json.dumps(values, ensure_ascii=False)
+        db.commit()
+        db.refresh(sheet)
+        owner = db.get(CampaignMember, sheet.owner_id)
+        return _output(sheet, owner.display_name if owner else "Jogador removido")
+
+
 def public_values(sheet_id: str) -> dict[str, Any] | None:
     found = get_sheet(sheet_id)
     if found is None:
@@ -310,6 +375,58 @@ def public_values(sheet_id: str) -> dict[str, Any] | None:
     sheet, _ = found
     public_keys = {field.key for field in sheet.fields if field.public}
     return {key: value for key, value in sheet.values.items() if key in public_keys}
+
+
+def _draw_custom_fields(writer: PdfWriter, sheet: CharacterSheetOut) -> None:
+    custom_by_page: dict[int, list[SheetFieldOut]] = {}
+    for field in sheet.fields:
+        if field.source == "custom" and field.key in sheet.values:
+            custom_by_page.setdefault(field.page, []).append(field)
+    if not custom_by_page:
+        return
+
+    overlay_stream = io.BytesIO()
+    first_page = writer.pages[0]
+    overlay = canvas.Canvas(overlay_stream, pagesize=(float(first_page.mediabox.width), float(first_page.mediabox.height)))
+    for page_number, page in enumerate(writer.pages, start=1):
+        width = float(page.mediabox.width)
+        height = float(page.mediabox.height)
+        overlay.setPageSize((width, height))
+        for field in custom_by_page.get(page_number, []):
+            left, top, box_width, box_height = field.rect
+            x = width * left / 100
+            y = height * (1 - (top + box_height) / 100)
+            w = width * box_width / 100
+            h = height * box_height / 100
+            value = sheet.values.get(field.key)
+            if field.field_type == "image" and value:
+                encoded = str(value).split(",", 1)[1]
+                overlay.drawImage(ImageReader(io.BytesIO(base64.b64decode(encoded))), x, y, w, h, preserveAspectRatio=True, anchor="c", mask="auto")
+            elif field.field_type == "checkbox":
+                if value:
+                    overlay.setLineWidth(max(1, min(w, h) * 0.08))
+                    overlay.line(x + w * 0.18, y + h * 0.5, x + w * 0.42, y + h * 0.22)
+                    overlay.line(x + w * 0.42, y + h * 0.22, x + w * 0.84, y + h * 0.8)
+            elif field.field_type == "textarea":
+                font_size = max(6.0, min(11.0, h * 0.2))
+                overlay.setFont("Helvetica", font_size)
+                max_chars = max(8, int(w / (font_size * 0.52)))
+                cursor_y = y + h - font_size
+                for line in textwrap.wrap(str(value or ""), width=max_chars, replace_whitespace=False):
+                    if cursor_y < y:
+                        break
+                    overlay.drawString(x, cursor_y, line)
+                    cursor_y -= font_size * 1.2
+            else:
+                font_size = max(6.0, min(12.0, h * 0.7))
+                overlay.setFont("Helvetica", font_size)
+                overlay.drawString(x, y + max(0, (h - font_size) / 2), str(value or ""))
+        overlay.showPage()
+    overlay.save()
+    overlay_stream.seek(0)
+    overlay_reader = PdfReader(overlay_stream)
+    for index, page in enumerate(writer.pages):
+        page.merge_page(overlay_reader.pages[index], over=True)
 
 
 def export_pdf(sheet_id: str) -> tuple[bytes, str] | None:
@@ -329,6 +446,7 @@ def export_pdf(sheet_id: str) -> tuple[bytes, str] | None:
     if acro_values:
         for page in writer.pages:
             writer.update_page_form_field_values(page, acro_values, auto_regenerate=False)
+    _draw_custom_fields(writer, sheet)
     output = io.BytesIO()
     writer.write(output)
     safe_title = re.sub(r"[^a-zA-Z0-9_-]+", "_", sheet.title).strip("_") or "ficha"

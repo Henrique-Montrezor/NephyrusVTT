@@ -12,7 +12,7 @@ import { ToolsController } from "./tools-controller";
 import { MESSAGE_TYPES } from "@/net/message-types";
 import { ws, startWs } from "@/net/ws";
 import { identity } from "@/state/identity";
-import { activeTool, presence, pushLog, sharedItems, type PresenceMember, type SharedItem } from "@/state/ui-store";
+import { activeTool, presence, publicSheetUpdates, pushLog, sharedItems, type PresenceMember, type SharedItem } from "@/state/ui-store";
 import { openTokenMenu } from "@/features/tokens/token-menu";
 
 export interface SessionApi {
@@ -94,6 +94,19 @@ function wireChat(): void {
   });
   ws.on(MESSAGE_TYPES.LIBRARY_SHARE, (p: { url?: string; name?: string; kind?: string; from?: string }) => {
     if (p?.url) addShared(p.kind ?? "doc", p.name ?? "Arquivo", p.url, p.from ?? "?");
+  });
+  ws.on(MESSAGE_TYPES.SHEET_PUBLIC_UPDATE, (p: { sheet_id?: string; title?: string; owner_name?: string; values?: Record<string, unknown> }) => {
+    if (!p.sheet_id || !p.values) return;
+    const current = publicSheetUpdates.value.get(p.sheet_id);
+    const next = new Map(publicSheetUpdates.value);
+    next.set(p.sheet_id, {
+      sheet_id: p.sheet_id,
+      title: p.title ?? current?.title ?? "Ficha",
+      owner_name: p.owner_name ?? current?.owner_name ?? "Jogador",
+      values: { ...(current?.values ?? {}), ...p.values },
+      received_at: Date.now(),
+    });
+    publicSheetUpdates.value = next;
   });
 }
 

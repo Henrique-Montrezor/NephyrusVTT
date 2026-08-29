@@ -52,6 +52,14 @@ class SheetFieldVisibilityIn(BaseModel):
     public: bool
 
 
+class SheetFieldUpdateIn(BaseModel):
+    label: str | None = Field(default=None, min_length=1, max_length=160)
+    field_type: SheetFieldType | None = None
+    page: int | None = Field(default=None, ge=1)
+    rect: list[float] | None = Field(default=None, min_length=4, max_length=4)
+    public: bool | None = None
+
+
 class PublicSheetValuesOut(BaseModel):
     sheet_id: str
     title: str

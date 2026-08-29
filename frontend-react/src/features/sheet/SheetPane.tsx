@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { SheetClient, type CharacterSheetOut, type SheetFieldOut, type SheetOwnerOut } from "@/net/rest";
 import { identity } from "@/state/identity";
+import { publicSheetUpdates } from "@/state/ui-store";
+import { SheetEditor } from "./SheetEditor";
 
-type ViewMode = "fields" | "pdf";
+type ViewMode = "fields" | "pdf" | "editor";
 
 function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -18,6 +20,29 @@ function FieldControl({ field, value, onChange }: {
   value: unknown;
   onChange: (value: unknown) => void;
 }) {
+  if (field.field_type === "image") {
+    const imageValue = typeof value === "string" ? value : "";
+    return (
+      <div class="sheet-image-control">
+        {imageValue && <img src={imageValue} alt={`Imagem de ${field.label}`} />}
+        <label class="sheet-image-pick">
+          <span>{imageValue ? "Trocar imagem" : "Escolher imagem"}</span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={(event) => {
+              const file = (event.target as HTMLInputElement).files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.addEventListener("load", () => onChange(String(reader.result ?? "")), { once: true });
+              reader.readAsDataURL(file);
+            }}
+          />
+        </label>
+        {imageValue && <button type="button" class="btn-ghost" onClick={() => onChange("")}>Remover</button>}
+      </div>
+    );
+  }
   if (field.field_type === "checkbox") {
     return (
       <label class="sheet-check">
@@ -53,6 +78,7 @@ export function SheetPane() {
   const [ownerId, setOwnerId] = useState("");
   const [owners, setOwners] = useState<SheetOwnerOut[]>([]);
   const selected = sheets.find((sheet) => sheet.id === selectedId) ?? sheets[0] ?? null;
+  const liveUpdate = selected ? publicSheetUpdates.value.get(selected.id) : undefined;
 
   const replaceSheet = (next: CharacterSheetOut) => {
     setSheets((current) => current.map((sheet) => sheet.id === next.id ? next : sheet));
@@ -73,6 +99,9 @@ export function SheetPane() {
 
   useEffect(() => { void refresh(); }, [client]);
   useEffect(() => { setDraft(selected?.values ?? {}); }, [selected?.id, selected?.updated_at]);
+  useEffect(() => {
+    if (liveUpdate) setDraft((current) => ({ ...current, ...liveUpdate.values }));
+  }, [liveUpdate?.received_at]);
   useEffect(() => {
     let alive = true;
     let nextUrl = "";
@@ -113,7 +142,7 @@ export function SheetPane() {
       setSheets((current) => [created, ...current]);
       setSelectedId(created.id);
       setUploadFile(null);
-      setStatus(created.fields.length ? `${created.fields.length} campos detectados.` : "PDF importado sem campos. O editor de posicionamento será o próximo passo.");
+      setStatus(created.fields.length ? `${created.fields.length} campos detectados.` : "PDF importado sem campos. Abra o Editor para posicioná-los.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Falha ao importar ficha.");
     } finally {
@@ -170,9 +199,10 @@ export function SheetPane() {
             </label>
             <button type="button" class="btn-ghost sheet-export" disabled={busy} onClick={exportSheet}>Exportar</button>
           </div>
-          <div class="sheet-mode" role="tablist" aria-label="Visualização da ficha">
+          <div class={`sheet-mode${session.isGm ? " gm" : ""}`} role="tablist" aria-label="Visualização da ficha">
             <button type="button" class={mode === "fields" ? "active" : ""} aria-selected={mode === "fields"} onClick={() => setMode("fields")}>Campos</button>
             <button type="button" class={mode === "pdf" ? "active" : ""} aria-selected={mode === "pdf"} onClick={() => setMode("pdf")}>PDF · {selected.page_count} pág.</button>
+            {session.isGm && <button type="button" class={mode === "editor" ? "active" : ""} aria-selected={mode === "editor"} onClick={() => setMode("editor")}>Editor</button>}
           </div>
           {mode === "fields" ? (
             <div class="sheet-fields">
@@ -186,9 +216,11 @@ export function SheetPane() {
                     <button type="button" class={`sheet-public${field.public ? " active" : ""}`} aria-pressed={field.public} onClick={() => void togglePublic(field)}>{field.public ? "Público" : "Privado"}</button>
                   )}
                 </div>
-              )) : <div class="sheet-fields-empty">Este PDF não contém campos AcroForm. O posicionador visual será implementado no próximo corte P0.</div>}
+              )) : <div class="sheet-fields-empty">Este PDF ainda não possui campos. O mestre pode criá-los no Editor.</div>}
               {!!selected.fields.length && <button type="button" class="btn-primary sheet-save" disabled={busy} onClick={() => void save()}>{busy ? "Salvando…" : "Salvar alterações"}</button>}
             </div>
+          ) : mode === "editor" && session.isGm ? (
+            <SheetEditor client={client} sheet={selected} onChange={replaceSheet} onStatus={setStatus} />
           ) : pdfUrl ? (
             <object class="sheet-frame" data={pdfUrl} type="application/pdf" aria-label={`PDF ${selected.title}`}>
               <button type="button" class="btn-primary" onClick={() => window.open(pdfUrl, "_blank", "noopener,noreferrer")}>Abrir PDF</button>

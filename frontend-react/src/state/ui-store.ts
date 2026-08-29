@@ -81,6 +81,16 @@ export interface PresenceMember {
 
 export const presence = signal<PresenceMember[]>([]);
 
+export interface PublicSheetUpdate {
+  sheet_id: string;
+  title: string;
+  owner_name: string;
+  values: Record<string, unknown>;
+  received_at: number;
+}
+
+export const publicSheetUpdates = signal<Map<string, PublicSheetUpdate>>(new Map());
+
 let logSeq = 0;
 export function pushLog(entry: Omit<ChatEntry, "id" | "ts">): void {
   const next: ChatEntry = { ...entry, id: `log-${++logSeq}`, ts: Date.now() };

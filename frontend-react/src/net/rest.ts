@@ -60,6 +60,15 @@ export interface SheetOwnerOut {
   display_name: string;
 }
 
+export interface SheetFieldDraft {
+  key: string;
+  label: string;
+  field_type: SheetFieldType;
+  page: number;
+  rect: [number, number, number, number];
+  public: boolean;
+}
+
 async function readError(res: Response, fallback: string): Promise<never> {
   const detail = (await res.json().catch(() => ({}))) as { detail?: string };
   throw new Error(detail.detail || `${fallback} (${res.status})`);
@@ -229,6 +238,35 @@ export class SheetClient {
       body: JSON.stringify({ public: isPublic }),
     });
     if (!res.ok) return readError(res, "Falha ao alterar visibilidade");
+    return res.json();
+  }
+
+  async addField(sheetId: string, field: SheetFieldDraft): Promise<CharacterSheetOut> {
+    const res = await fetch(`/api/sheets/${sheetId}/fields`, {
+      method: "POST",
+      headers: this.headers(true),
+      body: JSON.stringify(field),
+    });
+    if (!res.ok) return readError(res, "Falha ao criar campo");
+    return res.json();
+  }
+
+  async updateField(sheetId: string, fieldKey: string, patch: Partial<SheetFieldDraft>): Promise<CharacterSheetOut> {
+    const res = await fetch(`/api/sheets/${sheetId}/fields/${encodeURIComponent(fieldKey)}`, {
+      method: "PUT",
+      headers: this.headers(true),
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) return readError(res, "Falha ao reposicionar campo");
+    return res.json();
+  }
+
+  async removeField(sheetId: string, fieldKey: string): Promise<CharacterSheetOut> {
+    const res = await fetch(`/api/sheets/${sheetId}/fields/${encodeURIComponent(fieldKey)}`, {
+      method: "DELETE",
+      headers: this.headers(),
+    });
+    if (!res.ok) return readError(res, "Falha ao remover campo");
     return res.json();
   }
 

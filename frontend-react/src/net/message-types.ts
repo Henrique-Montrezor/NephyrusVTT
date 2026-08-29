@@ -42,6 +42,7 @@ export const MESSAGE_TYPES = {
 
   // Biblioteca (compartilhamento direcionado)
   LIBRARY_SHARE: "library:share",
+  SHEET_PUBLIC_UPDATE: "sheet:public_update",
 
   // Névoa de Guerra
   FOG_TOGGLE: "fog:toggle",

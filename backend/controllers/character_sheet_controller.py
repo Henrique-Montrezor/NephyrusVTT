@@ -13,12 +13,14 @@ from backend.schemas.character_sheet import (
     PublicSheetValuesOut,
     SheetFieldCreateIn,
     SheetFieldVisibilityIn,
+    SheetFieldUpdateIn,
     SheetOwnerOut,
     SheetValuesIn,
 )
 from backend.services import character_sheet_service as sheets
 from backend.services.auth_service import AuthIdentity
 from backend.services.character_sheet_service import SheetError
+from backend.network.connection_manager import manager
 
 router = APIRouter(prefix="/api", tags=["character-sheet"])
 
@@ -76,6 +78,24 @@ async def update_sheet_values(sheet_id: str, body: SheetValuesIn, identity: Auth
     except SheetError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     assert result is not None
+    changed_public = {
+        key: value
+        for key, value in (sheets.public_values(sheet_id) or {}).items()
+        if key in body.values
+    }
+    if changed_public:
+        await manager.broadcast(
+            identity.campaign_id,
+            {
+                "type": "sheet:public_update",
+                "payload": {
+                    "sheet_id": result.id,
+                    "title": result.title,
+                    "owner_name": result.owner_name,
+                    "values": changed_public,
+                },
+            },
+        )
     return result
 
 
@@ -97,6 +117,30 @@ async def update_field_visibility(sheet_id: str, field_key: str, body: SheetFiel
     _authorized(found[0] if found else None, identity, gm_only=True)
     try:
         result = sheets.set_field_public(sheet_id, field_key, body.public)
+    except SheetError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    assert result is not None
+    return result
+
+
+@router.put("/sheets/{sheet_id}/fields/{field_key}", response_model=CharacterSheetOut)
+async def update_sheet_field(sheet_id: str, field_key: str, body: SheetFieldUpdateIn, identity: AuthIdentity = Depends(current_identity)) -> CharacterSheetOut:
+    found = sheets.get_sheet(sheet_id)
+    _authorized(found[0] if found else None, identity, gm_only=True)
+    try:
+        result = sheets.update_custom_field(sheet_id, field_key, body.model_dump(exclude_none=True))
+    except SheetError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    assert result is not None
+    return result
+
+
+@router.delete("/sheets/{sheet_id}/fields/{field_key}", response_model=CharacterSheetOut)
+async def delete_sheet_field(sheet_id: str, field_key: str, identity: AuthIdentity = Depends(current_identity)) -> CharacterSheetOut:
+    found = sheets.get_sheet(sheet_id)
+    _authorized(found[0] if found else None, identity, gm_only=True)
+    try:
+        result = sheets.delete_custom_field(sheet_id, field_key)
     except SheetError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     assert result is not None

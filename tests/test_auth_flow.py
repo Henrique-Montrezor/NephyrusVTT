@@ -6,6 +6,7 @@ import os
 import shutil
 import tempfile
 import unittest
+import base64
 from io import BytesIO
 from pathlib import Path
 
@@ -26,6 +27,7 @@ from backend.schemas.scene import TokenAddIn, TokenUpdateIn  # noqa: E402
 from backend.services import scene_service  # noqa: E402
 from pypdf import PdfReader  # noqa: E402
 from reportlab.pdfgen import canvas  # noqa: E402
+from PIL import Image  # noqa: E402
 
 
 class AuthFlowTest(unittest.TestCase):
@@ -174,11 +176,75 @@ class AuthFlowTest(unittest.TestCase):
         self.assertEqual(player_list.status_code, 200)
         self.assertEqual(len(player_list.json()), 1)
 
-        saved = self.client.patch(
-            f"/api/sheets/{sheet_id}/values",
-            headers=player_headers,
-            json={"values": {"character_name": "Dante Vale", "heroic": True}},
+        custom_text = self.client.post(
+            f"/api/sheets/{sheet_id}/fields",
+            headers=gm_headers,
+            json={
+                "key": "codinome",
+                "label": "Codinome",
+                "field_type": "text",
+                "page": 1,
+                "rect": [12, 22, 35, 4],
+                "public": False,
+            },
         )
+        self.assertEqual(custom_text.status_code, 200, custom_text.text)
+        custom_level = self.client.post(
+            f"/api/sheets/{sheet_id}/fields",
+            headers=gm_headers,
+            json={
+                "key": "nivel",
+                "label": "Nível",
+                "field_type": "number",
+                "page": 1,
+                "rect": [74, 22, 8, 4],
+                "public": True,
+            },
+        )
+        self.assertEqual(custom_level.status_code, 200, custom_level.text)
+        moved = self.client.put(
+            f"/api/sheets/{sheet_id}/fields/codinome",
+            headers=gm_headers,
+            json={"rect": [12, 24, 35, 4]},
+        )
+        self.assertEqual(moved.status_code, 200, moved.text)
+        self.assertEqual(next(field for field in moved.json()["fields"] if field["key"] == "codinome")["rect"], [12.0, 24.0, 35.0, 4.0])
+
+        portrait = BytesIO()
+        Image.new("RGB", (24, 24), (39, 92, 76)).save(portrait, format="PNG")
+        portrait_value = "data:image/png;base64," + base64.b64encode(portrait.getvalue()).decode("ascii")
+        custom_image = self.client.post(
+            f"/api/sheets/{sheet_id}/fields",
+            headers=gm_headers,
+            json={
+                "key": "retrato",
+                "label": "Retrato",
+                "field_type": "image",
+                "page": 1,
+                "rect": [70, 30, 18, 18],
+                "public": False,
+            },
+        )
+        self.assertEqual(custom_image.status_code, 200, custom_image.text)
+
+        with self.client.websocket_connect(f"/ws?token={player['access_token']}") as websocket:
+            self.assertEqual(websocket.receive_json()["type"], "presence:list")
+            saved = self.client.patch(
+                f"/api/sheets/{sheet_id}/values",
+                headers=player_headers,
+                json={
+                    "values": {
+                        "character_name": "Dante Vale",
+                        "heroic": True,
+                        "codinome": "Vigia",
+                        "nivel": 7,
+                        "retrato": portrait_value,
+                    }
+                },
+            )
+            live = websocket.receive_json()
+            self.assertEqual(live["type"], "sheet:public_update")
+            self.assertEqual(live["payload"]["values"], {"nivel": 7})
         self.assertEqual(saved.status_code, 200, saved.text)
         self.assertEqual(saved.json()["values"]["character_name"], "Dante Vale")
 
@@ -189,14 +255,20 @@ class AuthFlowTest(unittest.TestCase):
         )
         self.assertEqual(visible.status_code, 200, visible.text)
         public = self.client.get(f"/api/sheets/{sheet_id}/public", headers=gm_headers)
-        self.assertEqual(public.json()["values"], {"character_name": "Dante Vale"})
+        self.assertEqual(public.json()["values"], {"character_name": "Dante Vale", "nivel": 7})
 
         exported = self.client.get(f"/api/sheets/{sheet_id}/export", headers=player_headers)
         self.assertEqual(exported.status_code, 200, exported.text)
+        if qa_output := os.environ.get("NEFERUS_PDF_QA_OUTPUT"):
+            Path(qa_output).parent.mkdir(parents=True, exist_ok=True)
+            Path(qa_output).write_bytes(exported.content)
         exported_reader = PdfReader(BytesIO(exported.content))
         exported_fields = exported_reader.get_fields() or {}
         self.assertEqual(str(exported_fields["character_name"].get("/V")), "Dante Vale")
         self.assertEqual(str(exported_fields["heroic"].get("/V")), "/Yes")
+        self.assertIn("Vigia", exported_reader.pages[0].extract_text())
+        self.assertIn("7", exported_reader.pages[0].extract_text())
+        self.assertGreaterEqual(len(exported_reader.pages[0].images), 1)
         widgets = [
             annotation.get_object()
             for page in exported_reader.pages
@@ -204,6 +276,12 @@ class AuthFlowTest(unittest.TestCase):
             if annotation.get_object().get("/Subtype") == "/Widget"
         ]
         self.assertTrue(all(widget.get("/AP", {}).get("/N") is not None for widget in widgets))
+
+        removed = self.client.delete(
+            f"/api/sheets/{sheet_id}/fields/codinome", headers=gm_headers
+        )
+        self.assertEqual(removed.status_code, 200, removed.text)
+        self.assertNotIn("codinome", {field["key"] for field in removed.json()["fields"]})
 
 
 if __name__ == "__main__":

@@ -92,12 +92,12 @@ Critério de aceite: um jogador não consegue ler ou alterar recursos de outra c
 ### P0. Ficha PDF preenchível
 
 - [x] Fazer upload de um PDF e detectar páginas e campos AcroForm existentes
-- [ ] Permitir posicionar campos sobre PDFs sem formulário
-- [ ] Suportar texto, número, checkbox, área longa e imagem de personagem
+- [x] Permitir posicionar campos sobre PDFs sem formulário
+- [x] Suportar texto, número, checkbox, área longa e imagem de personagem
 - [x] Salvar valores por personagem sem alterar o PDF original
-- [ ] Sincronizar somente campos marcados como públicos
+- [x] Sincronizar somente campos marcados como públicos
 - [x] Exportar uma cópia preenchida
-- [ ] Oferecer navegação e zoom utilizáveis no celular
+- [x] Oferecer navegação e zoom utilizáveis no celular
 
 Critério de aceite: o mestre importa uma ficha de sistema indie, define pelo menos dez campos e entrega uma cópia editável a um jogador. Os dados persistem entre sessões e podem ser exportados.
 
