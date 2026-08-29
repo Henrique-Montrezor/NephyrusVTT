@@ -30,6 +30,7 @@ export class WsClient {
   private readonly listeners = new Map<string, Set<Listener>>();
 
   private reconnectAttempts = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private shouldReconnect = true;
   private connected = false;
@@ -61,6 +62,7 @@ export class WsClient {
   }
 
   private open(): void {
+    if (this.socket?.readyState === WebSocket.OPEN || this.socket?.readyState === WebSocket.CONNECTING) return;
     try {
       this.socket = new WebSocket(this.url);
     } catch (err) {
@@ -77,6 +79,8 @@ export class WsClient {
   private onOpen(): void {
     this.connected = true;
     this.reconnectAttempts = 0;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
     console.info("[WS] Conectado ao Host.");
     this.startHeartbeat();
     this.emit("open", {});
@@ -115,6 +119,7 @@ export class WsClient {
   }
 
   private scheduleReconnect(): void {
+    if (this.reconnectTimer) return;
     this.reconnectAttempts += 1;
     const delay = Math.min(
       this.maxReconnectDelay,
@@ -122,9 +127,21 @@ export class WsClient {
     );
     console.info(`[WS] Reconectando em ${delay}ms (tentativa ${this.reconnectAttempts}).`);
     this.emit("reconnecting", { delay, attempt: this.reconnectAttempts });
-    setTimeout(() => {
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
       if (this.shouldReconnect) this.open();
     }, delay);
+  }
+
+  /** Retoma imediatamente após o navegador voltar do background ou recuperar a rede. */
+  reconnectNow(): void {
+    if (!this.shouldReconnect || this.connected) return;
+    if (this.socket?.readyState === WebSocket.CONNECTING) return;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    this.socket = null;
+    this.emit("reconnecting", { delay: 0, attempt: this.reconnectAttempts + 1 });
+    this.open();
   }
 
   private startHeartbeat(): void {
@@ -180,6 +197,8 @@ export class WsClient {
 
   disconnect(): void {
     this.shouldReconnect = false;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
     this.stopHeartbeat();
     this.socket?.close();
     this.socket = null;

@@ -33,4 +33,9 @@ export function startWs(): void {
   ws.connect({
     token: id.accessToken,
   });
+
+  window.addEventListener("online", () => ws.reconnectNow());
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") ws.reconnectNow();
+  });
 }

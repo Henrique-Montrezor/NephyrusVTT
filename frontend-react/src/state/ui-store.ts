@@ -6,7 +6,7 @@ import { signal } from "@preact/signals";
 import type { SceneListItem } from "@/net/types";
 
 export type Theme = "light" | "dark";
-export type DockTab = "chat" | "dice" | "tokens" | "scene" | "shared" | "library";
+export type DockTab = "chat" | "dice" | "sheet" | "tokens" | "scene" | "shared" | "library";
 
 const THEME_KEY = "nephyrus:theme";
 
@@ -72,6 +72,14 @@ export interface SharedItem {
 }
 
 export const sharedItems = signal<SharedItem[]>([]);
+
+export interface PresenceMember {
+  user_id: string;
+  display_name: string;
+  is_gm: boolean;
+}
+
+export const presence = signal<PresenceMember[]>([]);
 
 let logSeq = 0;
 export function pushLog(entry: Omit<ChatEntry, "id" | "ts">): void {

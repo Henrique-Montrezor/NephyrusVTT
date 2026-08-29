@@ -136,6 +136,7 @@ class TokenUpdateIn(BaseModel):
     light_radius: float | None = Field(default=None, ge=0, le=200)
     conditions: list[str] | None = None
     layer: str | None = None
+    owner_id: str | None = None
 
 
 class GridUpdateIn(BaseModel):

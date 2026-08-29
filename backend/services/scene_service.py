@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
 from backend.models.scene import Scene
+from backend.models.campaign import CampaignMember
 from backend.models.token import LAYER_GM, LAYER_OBJECT, LAYERS, Token
 from backend.schemas.scene import (
     FogOut,
@@ -184,6 +185,10 @@ def add_token(scene_id: int, data: TokenAddIn) -> TokenOut | None:
         scene = db.get(Scene, scene_id)
         if scene is None:
             return None
+        if data.owner_id is not None:
+            owner = db.get(CampaignMember, data.owner_id)
+            if owner is None or owner.campaign_id != scene.campaign_id or not owner.is_active:
+                return None
         token = Token(scene_id=scene_id, **data.model_dump())
         if token.layer not in LAYERS:
             token.layer = LAYER_OBJECT
@@ -332,6 +337,13 @@ def update_token(
             return None
         if not is_gm and token.owner_id != user_id:
             return None
+        if "owner_id" in data.model_fields_set:
+            if not is_gm:
+                return None
+            if data.owner_id is not None:
+                owner = db.get(CampaignMember, data.owner_id)
+                if owner is None or owner.campaign_id != token.scene.campaign_id or not owner.is_active:
+                    return None
         if data.name is not None:
             token.name = data.name.strip() or token.name
         if data.width is not None:
@@ -348,6 +360,8 @@ def update_token(
             token.conditions = ",".join(dict.fromkeys(keys))
         if data.layer is not None and data.layer in LAYERS:
             token.layer = data.layer
+        if "owner_id" in data.model_fields_set:
+            token.owner_id = data.owner_id
         db.flush()
         return TokenOut.model_validate(token)
 

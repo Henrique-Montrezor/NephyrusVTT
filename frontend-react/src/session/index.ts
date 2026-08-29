@@ -12,7 +12,7 @@ import { ToolsController } from "./tools-controller";
 import { MESSAGE_TYPES } from "@/net/message-types";
 import { ws, startWs } from "@/net/ws";
 import { identity } from "@/state/identity";
-import { activeTool, pushLog, sharedItems, type SharedItem } from "@/state/ui-store";
+import { activeTool, presence, pushLog, sharedItems, type PresenceMember, type SharedItem } from "@/state/ui-store";
 import { openTokenMenu } from "@/features/tokens/token-menu";
 
 export interface SessionApi {
@@ -76,6 +76,9 @@ function tryStart(): void {
 }
 
 function wireChat(): void {
+  ws.on(MESSAGE_TYPES.PRESENCE_LIST, (payload: { users?: PresenceMember[] }) => {
+    presence.value = payload.users ?? [];
+  });
   ws.on(MESSAGE_TYPES.CHAT, (p: { user_id?: string; text?: string }) => {
     pushLog({ author: p?.user_id ?? "?", text: p?.text ?? "", kind: "chat" });
   });

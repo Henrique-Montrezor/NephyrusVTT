@@ -2,6 +2,7 @@ import { useRef } from "preact/hooks";
 import { activeTab, dockOpen } from "@/state/ui-store";
 import { ChatPane } from "@/features/chat/ChatPane";
 import { DicePane } from "@/features/dice/DicePane";
+import { SheetPane } from "@/features/sheet/SheetPane";
 import { TokensPane } from "@/features/tokens/TokensPane";
 import { ScenePane } from "@/features/scene/ScenePane";
 import { SharedPane } from "@/features/shared/SharedPane";
@@ -12,6 +13,7 @@ const DOCK_W_KEY = "nephyrus:dock-width";
 const TAB_LABELS = {
   chat: "Chat",
   dice: "Dados",
+  sheet: "Ficha",
   tokens: "Tokens",
   scene: "Cena",
   shared: "Compartilhados",
@@ -71,6 +73,7 @@ export function Dock() {
       <div class="dock-body">
         {tab === "chat" && <ChatPane />}
         {tab === "dice" && <DicePane />}
+        {tab === "sheet" && <SheetPane />}
         {tab === "tokens" && <TokensPane />}
         {tab === "scene" && <ScenePane />}
         {tab === "shared" && <SharedPane />}

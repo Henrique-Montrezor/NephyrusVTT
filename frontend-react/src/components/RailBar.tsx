@@ -6,6 +6,7 @@ interface TabDef {
   id: DockTab;
   label: string;
   gmOnly?: boolean;
+  playerOnly?: boolean;
   icon: VNode;
 }
 
@@ -27,6 +28,17 @@ const TABS: TabDef[] = [
       <svg viewBox="0 0 24 24" fill="none">
         <path d="M12 2 L20.5 7 V17 L12 22 L3.5 17 V7 Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
         <path d="M12 2 V8 M3.6 7 L12 8 L20.4 7 M6 15.5 L12 8 L18 15.5 M6 15.5 L12 22 L18 15.5" stroke="currentColor" stroke-width="1" opacity=".65" />
+      </svg>
+    ),
+  },
+  {
+    id: "sheet",
+    label: "Ficha",
+    playerOnly: true,
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M6 3h9l3 3v15H6Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+        <path d="M15 3v4h4M9 11h6M9 15h6M9 18h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
       </svg>
     ),
   },
@@ -87,7 +99,7 @@ export function RailBar() {
 
   return (
     <nav class="railbar" role="tablist" aria-label="Painéis da mesa">
-      {TABS.filter((t) => !t.gmOnly || isGm).map((t) => (
+      {TABS.filter((t) => (!t.gmOnly || isGm) && (!t.playerOnly || !isGm) && (isGm || ["chat", "dice", "sheet", "tokens"].includes(t.id))).map((t) => (
         <button
           key={t.id}
           class={`tab-btn${activeTab.value === t.id ? " active" : ""}`}

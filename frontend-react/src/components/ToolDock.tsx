@@ -38,23 +38,28 @@ export function ToolDock() {
           <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.7" /><path d="M8 11h6M20 20l-4.5-4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>
         </button>
 
-        <div class="tool-sep" />
-
         <button class={`tool-btn${tool === null || tool === "select" ? " active" : ""}`} title="Selecionar" onClick={() => selectTool("select")}>
           <svg viewBox="0 0 24 24" fill="none"><path d="M5 3 L19 12 L12 13 L15.5 20 L12.5 21.5 L9 14.5 L5 18 Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg>
         </button>
-        <button class={`tool-btn${tool === "pen" ? " active" : ""}`} title="Caneta" onClick={() => selectTool("pen")}>
-          <svg viewBox="0 0 24 24" fill="none"><path d="M4 20 l1-4 L15 6 l3 3 L8 19 l-4 1Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><path d="M13.5 7.5 l3 3" stroke="currentColor" stroke-width="1.4" /></svg>
-        </button>
-        <button class={`tool-btn${tool === "text" ? " active" : ""}`} title="Texto" onClick={() => selectTool("text")}>
-          <svg viewBox="0 0 24 24" fill="none"><path d="M5 6 h14 M12 6 v13 M9 19 h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>
-        </button>
+        {isGm && <div class="tool-sep" />}
+        {isGm && (
+          <button class={`tool-btn${tool === "pen" ? " active" : ""}`} title="Caneta" onClick={() => selectTool("pen")}>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 20 l1-4 L15 6 l3 3 L8 19 l-4 1Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><path d="M13.5 7.5 l3 3" stroke="currentColor" stroke-width="1.4" /></svg>
+          </button>
+        )}
+        {isGm && (
+          <button class={`tool-btn${tool === "text" ? " active" : ""}`} title="Texto" onClick={() => selectTool("text")}>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M5 6 h14 M12 6 v13 M9 19 h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></svg>
+          </button>
+        )}
         <button class={`tool-btn${tool === "metric" ? " active" : ""}`} title="Métrica / efeito" onClick={() => selectTool("metric")}>
           <svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="15" r="5.5" stroke="currentColor" stroke-width="1.6" /><path d="M9 15 L14.5 9.5 M13 4 h7 v7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
         </button>
-        <button class={`tool-btn${openPanel.value === "turn" ? " active" : ""}`} title="Ordem de turnos" onClick={() => (openPanel.value = openPanel.value === "turn" ? null : "turn")}>
-          <svg viewBox="0 0 24 24" fill="none"><path d="M5 6 h14 M5 12 h14 M5 18 h9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /><path d="M18 16 l2 2 l-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
-        </button>
+        {isGm && (
+          <button class={`tool-btn${openPanel.value === "turn" ? " active" : ""}`} title="Ordem de turnos" onClick={() => (openPanel.value = openPanel.value === "turn" ? null : "turn")}>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M5 6 h14 M5 12 h14 M5 18 h9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /><path d="M18 16 l2 2 l-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </button>
+        )}
         {isGm && (
           <button class={`tool-btn${openPanel.value === "fog" ? " active" : ""}`} title="Névoa de Guerra" onClick={() => (openPanel.value = openPanel.value === "fog" ? null : "fog")}>
             <svg viewBox="0 0 24 24" fill="none"><path d="M7 16 a4 4 0 0 1 .6-7.96 A5 5 0 0 1 17 9 a3.5 3.5 0 0 1-.5 7 Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /><path d="M5 20 h14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".7" /></svg>

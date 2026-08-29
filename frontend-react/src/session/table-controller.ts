@@ -212,6 +212,7 @@ export class TableController {
       light_radius?: number;
       conditions?: string[];
       layer?: TokenLayer;
+      owner_id?: string | null;
     } = {},
   ): void {
     const token = tokens.value.get(tokenId);
@@ -224,6 +225,7 @@ export class TableController {
     if (props.light_radius != null) payload.light_radius = props.light_radius;
     if (props.conditions != null) payload.conditions = props.conditions;
     if (props.layer != null) payload.layer = props.layer;
+    if (this.identity.isGm && props.owner_id !== undefined) payload.owner_id = props.owner_id;
     ws.send(MESSAGE_TYPES.TOKEN_UPDATE, payload);
   }
 

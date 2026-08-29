@@ -16,6 +16,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from backend.main import app  # noqa: E402
 from backend.database import engine  # noqa: E402
+from backend.schemas.scene import TokenAddIn, TokenUpdateIn  # noqa: E402
+from backend.services import scene_service  # noqa: E402
 
 
 class AuthFlowTest(unittest.TestCase):
@@ -58,7 +60,29 @@ class AuthFlowTest(unittest.TestCase):
         )
         self.assertEqual(joined.status_code, 200, joined.text)
         player_token = joined.json()["access_token"]
+        player_id = joined.json()["identity"]["member_id"]
         player_headers = {"Authorization": f"Bearer {player_token}"}
+
+        owned = scene_service.add_token(
+            scene.json()["id"],
+            TokenAddIn(name="Ravi", owner_id=player_id),
+        )
+        self.assertIsNotNone(owned)
+        assert owned is not None
+        self.assertEqual(owned.owner_id, player_id)
+
+        foreign_owner = scene_service.add_token(
+            scene.json()["id"],
+            TokenAddIn(name="Intruso", owner_id="member-from-another-campaign"),
+        )
+        self.assertIsNone(foreign_owner)
+
+        denied_owner_change = scene_service.update_token(
+            TokenUpdateIn(token_id=owned.id, owner_id=None),
+            user_id=player_id,
+            is_gm=False,
+        )
+        self.assertIsNone(denied_owner_change)
 
         forbidden = self.client.post(
             f"/api/campaigns/{campaign_id}/pages",

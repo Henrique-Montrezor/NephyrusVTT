@@ -6,7 +6,7 @@ import { InviteControl } from "./InviteControl";
 export function Topbar() {
   const id = identity.value;
   return (
-    <header class="topbar">
+    <header class="topbar" data-role={id.isGm ? "gm" : "player"}>
       <div class="brand">
         <span class="logo" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
