@@ -1,5 +1,5 @@
 /* ============================================================
-   Neferus VTT — tema claro (inspiração Roll20 + Quest Portal)
+   Neferus VTT - tema claro (inspiração Roll20 + Quest Portal)
    Layout: topbar + mesa central + dock lateral (abas no topo).
    Variáveis por tema permitem alternar claro/escuro.
    ============================================================ */
@@ -3332,6 +3332,16 @@ a:focus-visible {
 
   .topbar[data-role="player"] .icon-pill {
     display: none;
+  }
+
+  .topbar[data-role="player"] .topbar-action,
+  .dock-close,
+  .tool-btn {
+    min-height: 44px;
+  }
+
+  .topbar[data-role="player"] .topbar-action {
+    padding-inline: 11px;
   }
 
   .workspace[data-role="player"] .railbar .tab-btn {

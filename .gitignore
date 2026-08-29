@@ -10,6 +10,7 @@ node_modules/
 __pycache__/
 *.py[cod]
 data/.auth-secret
+data/*-qa.db
 
 # Specs do PyInstaller são geradas, exceto a nossa (fonte).
 *.spec

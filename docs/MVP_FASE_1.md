@@ -71,10 +71,10 @@ Critério de aceite: três navegadores entram na mesma campanha, um como mestre 
 - [x] Abrir chat, dados e tokens como painel inferior no retrato
 - [x] Abrir os mesmos painéis lateralmente no modo paisagem
 - [x] Garantir alvos de toque com pelo menos 44 px
-- [ ] Implementar modo de jogador com apenas chat, dados, ficha e tokens próprios
-- [ ] Criar bandeja rápida do personagem com PV, recurso principal e ações favoritas
+- [x] Implementar modo de jogador com apenas chat, dados, ficha e tokens próprios
+- [x] Criar bandeja rápida do personagem com PV, recurso principal e ações favoritas
 - [ ] Testar pan, zoom, seleção e movimento em iOS Safari e Chrome Android
-- [ ] Tratar safe areas, teclado virtual, rotação e perda de foco
+- [x] Tratar safe areas, teclado virtual, rotação e perda de foco
 
 Critério de aceite: um jogador participa de uma sessão de 60 minutos em um aparelho de 360 x 800 px sem solicitar a versão desktop e sem bloquear a visão do mapa para acessar dados ou chat.
 

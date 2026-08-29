@@ -77,7 +77,7 @@ export interface SceneListItem {
   is_active: boolean;
 }
 
-/** Identidade do participante, derivada da URL. */
+/** Identidade autenticada, derivada do token assinado pelo servidor. */
 export interface Identity {
   campaignId: string;
   campaignName: string;
