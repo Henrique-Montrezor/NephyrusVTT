@@ -34,7 +34,6 @@ const TABS: TabDef[] = [
   {
     id: "sheet",
     label: "Ficha",
-    playerOnly: true,
     icon: (
       <svg viewBox="0 0 24 24" fill="none">
         <path d="M6 3h9l3 3v15H6Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />

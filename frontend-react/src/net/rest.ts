@@ -29,6 +29,37 @@ export interface PageOut {
   updated_at: string;
 }
 
+export type SheetFieldType = "text" | "number" | "checkbox" | "textarea" | "image";
+
+export interface SheetFieldOut {
+  key: string;
+  label: string;
+  field_type: SheetFieldType;
+  page: number;
+  rect: [number, number, number, number];
+  public: boolean;
+  source: "acroform" | "custom";
+}
+
+export interface CharacterSheetOut {
+  id: string;
+  campaign_id: string;
+  owner_id: string;
+  owner_name: string;
+  title: string;
+  source_name: string;
+  page_count: number;
+  fields: SheetFieldOut[];
+  values: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SheetOwnerOut {
+  id: string;
+  display_name: string;
+}
+
 async function readError(res: Response, fallback: string): Promise<never> {
   const detail = (await res.json().catch(() => ({}))) as { detail?: string };
   throw new Error(detail.detail || `${fallback} (${res.status})`);
@@ -143,5 +174,68 @@ export class PageClient {
     });
     if (!res.ok) throw new Error(`Falha ao remover página (${res.status})`);
     return res.json();
+  }
+}
+
+export class SheetClient {
+  private readonly base: string;
+  constructor(private readonly identity: Identity) {
+    this.base = `/api/campaigns/${encodeURIComponent(identity.campaignId)}/sheets`;
+  }
+
+  private headers(json = false): HeadersInit {
+    return {
+      Authorization: `Bearer ${this.identity.accessToken}`,
+      ...(json ? { "Content-Type": "application/json" } : {}),
+    };
+  }
+
+  async list(): Promise<CharacterSheetOut[]> {
+    const res = await fetch(this.base, { headers: this.headers() });
+    if (!res.ok) return readError(res, "Falha ao listar fichas");
+    return res.json();
+  }
+
+  async owners(): Promise<SheetOwnerOut[]> {
+    const res = await fetch(`/api/campaigns/${encodeURIComponent(this.identity.campaignId)}/sheet-owners`, { headers: this.headers() });
+    if (!res.ok) return readError(res, "Falha ao listar jogadores");
+    return res.json();
+  }
+
+  async upload(file: File, ownerId: string, title: string): Promise<CharacterSheetOut> {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("owner_id", ownerId);
+    body.append("title", title);
+    const res = await fetch(this.base, { method: "POST", headers: this.headers(), body });
+    if (!res.ok) return readError(res, "Falha ao importar ficha");
+    return res.json();
+  }
+
+  async saveValues(sheetId: string, values: Record<string, unknown>): Promise<CharacterSheetOut> {
+    const res = await fetch(`/api/sheets/${sheetId}/values`, {
+      method: "PATCH",
+      headers: this.headers(true),
+      body: JSON.stringify({ values }),
+    });
+    if (!res.ok) return readError(res, "Falha ao salvar ficha");
+    return res.json();
+  }
+
+  async setPublic(sheetId: string, fieldKey: string, isPublic: boolean): Promise<CharacterSheetOut> {
+    const res = await fetch(`/api/sheets/${sheetId}/fields/${encodeURIComponent(fieldKey)}`, {
+      method: "PATCH",
+      headers: this.headers(true),
+      body: JSON.stringify({ public: isPublic }),
+    });
+    if (!res.ok) return readError(res, "Falha ao alterar visibilidade");
+    return res.json();
+  }
+
+  async pdfBlob(sheetId: string, exported = false): Promise<Blob> {
+    const suffix = exported ? "export" : "pdf";
+    const res = await fetch(`/api/sheets/${sheetId}/${suffix}`, { headers: this.headers() });
+    if (!res.ok) return readError(res, exported ? "Falha ao exportar ficha" : "Falha ao abrir PDF");
+    return res.blob();
   }
 }

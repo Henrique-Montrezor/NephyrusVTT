@@ -3252,6 +3252,122 @@ a:focus-visible {
   gap: 10px;
 }
 
+.sheet-import {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(120px, 1fr);
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.sheet-import > div {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sheet-import small,
+.sheet-field small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+.sheet-file {
+  min-width: 0;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  padding: 0 11px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  color: var(--text-2);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.sheet-file span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-file input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; }
+.sheet-import select { min-height: 42px; }
+
+.sheet-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.sheet-mode button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sheet-mode button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+
+.sheet-fields {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 2px;
+}
+
+.sheet-field {
+  position: relative;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.sheet-field > label { display: grid; gap: 7px; }
+.sheet-field > label > span { display: flex; justify-content: space-between; gap: 8px; padding-right: 62px; font-size: 0.77rem; font-weight: 700; }
+.sheet-field input[type="text"],
+.sheet-field input[type="number"],
+.sheet-field textarea { width: 100%; min-height: 42px; padding: 9px 10px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; }
+.sheet-field textarea { resize: vertical; line-height: 1.45; }
+.sheet-check { min-height: 42px; display: flex !important; grid-auto-flow: column; justify-content: start; align-items: center; gap: 9px !important; }
+.sheet-check input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+.sheet-public {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-height: 28px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.62rem;
+  cursor: pointer;
+}
+
+.sheet-public.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.sheet-save { position: sticky; bottom: 0; min-height: 44px; flex: 0 0 auto; }
+.sheet-fields-empty, .sheet-loading { padding: 24px 16px; border: 1px dashed var(--border-strong); border-radius: 9px; color: var(--muted); font-size: 0.8rem; line-height: 1.5; }
+.sheet-status { margin: 0; padding: 7px 9px; border-left: 2px solid var(--accent); color: var(--text-2); background: var(--accent-soft); font-size: 0.74rem; }
+
 .sheet-toolbar {
   display: flex;
   align-items: end;
@@ -3271,6 +3387,8 @@ a:focus-visible {
   text-decoration: none;
   white-space: nowrap;
 }
+
+.sheet-export { min-height: 40px; white-space: nowrap; }
 
 .sheet-frame {
   width: 100%;
@@ -3501,6 +3619,9 @@ a:focus-visible {
     align-items: stretch;
     flex-direction: column;
   }
+
+  .sheet-import { grid-template-columns: 1fr; }
+  .sheet-import > div { grid-column: 1; }
 
   .sheet-open {
     justify-content: center;

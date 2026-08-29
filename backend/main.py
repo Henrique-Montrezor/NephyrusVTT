@@ -19,6 +19,7 @@ from backend.controllers.scene_controller import router as scene_router
 from backend.controllers.asset_controller import router as asset_router
 from backend.controllers.page_controller import router as page_router
 from backend.controllers.auth_controller import router as auth_router
+from backend.controllers.character_sheet_controller import router as character_sheet_router
 from backend.network.ws_router import router as ws_router
 
 logging.basicConfig(level=logging.INFO)
@@ -52,6 +53,7 @@ app.include_router(scene_router)
 app.include_router(asset_router)
 app.include_router(page_router)
 app.include_router(auth_router)
+app.include_router(character_sheet_router)
 
 
 @app.get("/health")
