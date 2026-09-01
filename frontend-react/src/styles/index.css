@@ -2255,6 +2255,32 @@ input[type="checkbox"] {
   }
 }
 
+.modal-box.modal-workspace {
+  width: min(1180px, calc(100vw - 32px));
+  height: calc(100dvh - 32px);
+  max-height: none;
+}
+
+.modal-workspace .modal-head {
+  min-height: 56px;
+  padding: 10px 14px;
+}
+
+.modal-workspace .modal-close {
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-workspace .modal-body {
+  min-height: 0;
+  display: flex;
+  flex: 1;
+  padding: 0;
+  overflow: hidden;
+}
+
 /* ============================================================
    Nephyrus interface v2
    Uma ferramenta de mesa, não uma vitrine SaaS. O mapa ocupa a
@@ -3499,12 +3525,27 @@ a:focus-visible {
   cursor: pointer;
   border-style: dashed;
   border-color: color-mix(in srgb, var(--text-2) 55%, transparent);
-  background: color-mix(in srgb, var(--surface) 25%, transparent);
+  background: transparent;
+  opacity: 0.3;
 }
 
+.sheet-editor-field:hover,
+.sheet-editor-field:focus-visible,
+.sheet-editor-field.selected { opacity: 1; }
 .sheet-editor-field.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
-.sheet-editor-field span { position: absolute; left: 0; bottom: 100%; max-width: 160px; padding: 2px 4px; overflow: hidden; background: var(--text); color: var(--surface); font-size: 0.55rem; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-editor-field span { position: absolute; left: 0; bottom: 100%; display: none; max-width: 160px; padding: 2px 4px; overflow: hidden; background: var(--text); color: var(--surface); font-size: 0.55rem; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-editor-field:hover span,
+.sheet-editor-field:focus-visible span,
+.sheet-editor-field.selected span { display: block; }
 .sheet-editor-draft { pointer-events: none; outline: 1px solid var(--accent); }
+
+.sheet-editor-page-loading {
+  min-height: 300px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
 
 .sheet-editor-form {
   display: grid;
@@ -4570,13 +4611,133 @@ a:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
-.system-sheet-editor {
-  min-height: 0;
-  padding: 12px 14px 4px;
+.system-template-configure {
+  min-height: 310px;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-content: center;
+  align-items: center;
+  gap: 18px;
+  margin: 14px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
 }
 
-.system-sheet-editor .sheet-editor {
-  min-height: 580px;
+.system-template-configure-visual {
+  position: relative;
+  width: 82px;
+  aspect-ratio: 0.76;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--accent);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.system-template-configure-visual span {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.system-template-configure > div:last-child > strong {
+  font-size: 0.9rem;
+}
+
+.system-template-configure > div:last-child > p {
+  max-width: 52ch;
+  margin: 6px 0 16px;
+  color: var(--muted);
+  font-size: 0.73rem;
+  line-height: 1.5;
+}
+
+.system-template-configure .btn-primary {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding-inline: 13px;
+  white-space: nowrap;
+}
+
+.system-template-modal {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--surface);
+}
+
+.system-template-modal-meta {
+  display: grid;
+  grid-template-columns: minmax(220px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.system-template-modal-meta > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--accent);
+}
+
+.system-template-modal-meta span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.system-template-modal-meta strong,
+.system-template-modal-meta small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-template-modal-meta strong {
+  color: var(--text);
+  font-size: 0.75rem;
+}
+
+.system-template-modal-meta small {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 500;
+}
+
+.system-template-modal-meta p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.system-template-modal .sheet-editor {
+  min-height: 0;
+  flex: 1;
+}
+
+.system-template-modal .sheet-editor-viewport {
+  min-height: 0;
 }
 
 .system-roll-workspace {
@@ -4818,6 +4979,34 @@ a:focus-visible {
   .system-roll-head button { align-self: flex-end; }
   .system-pane .system-footer { align-items: stretch; flex-direction: column; }
   .system-pane .system-footer button { width: 100%; }
+  .system-template-configure { grid-template-columns: minmax(0, 1fr); }
+  .system-template-configure-visual { width: 64px; }
+}
+
+@media (max-width: 700px) {
+  .modal-overlay:has(.modal-workspace) {
+    padding: 0;
+  }
+
+  .modal-box.modal-workspace {
+    width: 100vw;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .system-template-modal {
+    padding: 8px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .system-template-modal-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .system-template-modal-meta p {
+    text-align: left;
+  }
 }
 
 @media (pointer: coarse) {

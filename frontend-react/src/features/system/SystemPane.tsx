@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { CheckCircle, DiceFive, FilePdf, Plus, UploadSimple } from "@phosphor-icons/react";
+import { ArrowsOutSimple, CheckCircle, DiceFive, FilePdf, Plus, SlidersHorizontal, UploadSimple } from "@phosphor-icons/react";
 import {
   GameSystemClient,
   SheetClient,
@@ -10,6 +10,7 @@ import {
 } from "@/net/rest";
 import { identity } from "@/state/identity";
 import { SheetEditor } from "@/features/sheet/SheetEditor";
+import { openModal } from "@/ui/modal";
 
 type View = "template" | "rolls";
 
@@ -27,6 +28,35 @@ const clone = (manifest: SystemManifest): SystemManifest => JSON.parse(JSON.stri
 function makeKey(label: string, fallback: number): string {
   return label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 48) || `rolagem_${fallback}`;
+}
+
+function TemplateEditorWorkspace({
+  client,
+  initialSheet,
+  onChange,
+}: {
+  client: SheetClient;
+  initialSheet: CharacterSheetOut;
+  onChange: (sheet: CharacterSheetOut) => void;
+}) {
+  const [sheet, setSheet] = useState(initialSheet);
+  const [message, setMessage] = useState("Selecione um campo para alterar seu nome ou tipo.");
+  const numericCount = sheet.fields.filter((field) => field.field_type === "number").length;
+
+  const update = (next: CharacterSheetOut) => {
+    setSheet(next);
+    onChange(next);
+  };
+
+  return (
+    <div class="system-template-modal">
+      <div class="system-template-modal-meta">
+        <div><FilePdf size={22} weight="duotone" /><span><strong>{sheet.source_name}</strong><small>{sheet.page_count} pág. | {sheet.fields.length} campos | {numericCount} numéricos</small></span></div>
+        <p role="status">{message}</p>
+      </div>
+      <SheetEditor client={client} sheet={sheet} onChange={update} onStatus={setMessage} />
+    </div>
+  );
 }
 
 export function SystemPane() {
@@ -140,6 +170,25 @@ export function SystemPane() {
 
   const numericFields = template?.fields.filter((field) => field.field_type === "number") ?? [];
 
+  const openTemplateEditor = () => {
+    if (!template) return;
+    openModal({
+      title: "Configurar campos do PDF",
+      variant: "workspace",
+      body: (
+        <TemplateEditorWorkspace
+          client={sheetClient}
+          initialSheet={template}
+          onChange={(next) => {
+            setTemplate(next);
+            setStatus("Modelo atualizado. Os campos numéricos já podem ser usados nas rolagens.");
+            setTone("success");
+          }}
+        />
+      ),
+    });
+  };
+
   return (
     <section class="tab-pane system-pane active" aria-busy={busy}>
       <header class="system-header">
@@ -180,8 +229,16 @@ export function SystemPane() {
           </nav>
 
           {view === "template" ? (
-            <div class="system-sheet-editor">
-              <SheetEditor client={sheetClient} sheet={template} onChange={setTemplate} onStatus={(message) => { setStatus(message); setTone("neutral"); }} />
+            <div class="system-template-configure">
+              <div class="system-template-configure-visual">
+                <FilePdf size={34} weight="duotone" />
+                <span>{template.page_count}</span>
+              </div>
+              <div>
+                <strong>Configure a ficha em uma área ampla</strong>
+                <p>Abra o PDF para classificar campos detectados, desenhar novos campos e navegar pelas páginas sem comprimir a mesa.</p>
+                <button type="button" class="btn-primary" onClick={openTemplateEditor}><SlidersHorizontal size={18} weight="bold" /> Configurar campos do PDF <ArrowsOutSimple size={16} /></button>
+              </div>
             </div>
           ) : (
             <div class="system-roll-workspace">

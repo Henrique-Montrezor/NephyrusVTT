@@ -39,7 +39,7 @@ export function SheetEditor({ client, sheet, onChange, onStatus }: SheetEditorPr
   const [pendingRect, setPendingRect] = useState<[number, number, number, number] | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [drawing, setDrawing] = useState(true);
+  const [drawing, setDrawing] = useState(sheet.fields.length === 0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -256,14 +256,17 @@ export function SheetEditor({ client, sheet, onChange, onStatus }: SheetEditorPr
         <button type="button" aria-pressed={!drawing} onClick={() => setDrawing((value) => !value)}>{drawing ? "Navegar" : "Desenhar"}</button>
       </div>
       <div class="sheet-editor-viewport" ref={viewportRef}>
+        {!documentProxy && <div class="sheet-editor-page-loading" role="status">Carregando página...</div>}
         <div class={`sheet-editor-page${drawing ? "" : " navigating"}`} ref={pageRef} onPointerDown={drawStart} onPointerMove={drawMove} onPointerUp={drawEnd}>
           <canvas ref={canvasRef} />
           {visibleFields.map((field) => (
             <button
+              key={field.key}
               type="button"
               class={`sheet-editor-field ${field.source}${editingKey === field.key ? " selected" : ""}`}
               style={{ left: `${field.rect[0]}%`, top: `${field.rect[1]}%`, width: `${field.rect[2]}%`, height: `${field.rect[3]}%` }}
               title={`${field.label} (${field.field_type})`}
+              aria-label={`${field.label}, ${field.field_type}`}
               onClick={(event) => { event.stopPropagation(); selectField(field); }}
             >
               <span>{field.label}</span>

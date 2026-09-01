@@ -6,6 +6,7 @@
 import { signal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
 import type { ComponentChildren, VNode } from "preact";
+import { X } from "@phosphor-icons/react";
 
 export interface ModalAction {
   label: string;
@@ -18,6 +19,7 @@ export interface ModalOptions {
   body?: ComponentChildren;
   actions?: ModalAction[];
   onClose?: () => void;
+  variant?: "default" | "workspace";
 }
 
 interface ModalInstance extends ModalOptions {
@@ -43,6 +45,7 @@ function closeModal(id: number): void {
 
 function ModalView({ inst }: { inst: ModalInstance }): VNode {
   const close = () => closeModal(inst.id);
+  const titleId = `modal-title-${inst.id}`;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -59,13 +62,16 @@ function ModalView({ inst }: { inst: ModalInstance }): VNode {
         if (e.target === e.currentTarget) close();
       }}
     >
-      <div class="modal-box">
+      <div
+        class={`modal-box${inst.variant === "workspace" ? " modal-workspace" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={inst.title ? titleId : undefined}
+      >
         <div class="modal-head">
-          <h3>{inst.title}</h3>
+          <h3 id={titleId}>{inst.title}</h3>
           <button class="modal-close" type="button" aria-label="Fechar" onClick={close}>
-            <svg viewBox="0 0 24 24" width={16} height={16} fill="none">
-              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-            </svg>
+            <X size={19} weight="bold" />
           </button>
         </div>
         <div class="modal-body">{inst.body}</div>
