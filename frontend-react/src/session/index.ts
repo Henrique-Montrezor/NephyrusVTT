@@ -92,8 +92,8 @@ function wireChat(): void {
   ws.on(MESSAGE_TYPES.PDF_SHARE, (p: { url?: string; name?: string; from?: string }) => {
     if (p?.url) addShared("pdf", p.name ?? "PDF", p.url, p.from ?? "?");
   });
-  ws.on(MESSAGE_TYPES.LIBRARY_SHARE, (p: { url?: string; name?: string; kind?: string; from?: string }) => {
-    if (p?.url) addShared(p.kind ?? "doc", p.name ?? "Arquivo", p.url, p.from ?? "?");
+  ws.on(MESSAGE_TYPES.LIBRARY_SHARE, (p: { from?: string; item?: { url?: string; name?: string; kind?: string } }) => {
+    if (p?.item?.url) addShared(p.item.kind ?? "doc", p.item.name ?? "Arquivo", p.item.url, p.from ?? "?");
   });
   ws.on(MESSAGE_TYPES.SHEET_PUBLIC_UPDATE, (p: { sheet_id?: string; title?: string; owner_name?: string; values?: Record<string, unknown> }) => {
     if (!p.sheet_id || !p.values) return;

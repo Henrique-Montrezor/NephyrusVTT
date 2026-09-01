@@ -26,7 +26,7 @@ async def handle_library_share(client: Client, payload: dict) -> None:
 
     message = {
         "type": "library:share",
-        "payload": {"from": client.user_id, "item": item},
+        "payload": {"from": client.display_name or client.user_id, "item": item},
     }
     if target in ("*", "all"):
         await manager.broadcast(client.campaign_id, message, exclude=client.websocket)

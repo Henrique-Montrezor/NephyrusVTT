@@ -39,6 +39,7 @@ ALLOWED_MIME_PREFIX: dict[str, tuple[str, ...]] = {
 }
 
 _SAFE_SEGMENT = re.compile(r"[^a-zA-Z0-9_-]+")
+_SAFE_FOLDER_SEGMENT = re.compile(r"[^\w .-]+", re.UNICODE)
 
 
 class UploadError(ValueError):
@@ -57,7 +58,8 @@ def _safe_folder(folder: str, max_depth: int = 6) -> str:
         return ""
     segments = []
     for raw in str(folder).split("/"):
-        seg = _SAFE_SEGMENT.sub("_", raw.strip()).strip("_")
+        compact = re.sub(r"\s+", " ", raw.strip())
+        seg = _SAFE_FOLDER_SEGMENT.sub("_", compact).strip(" ._")[:80]
         if seg:
             segments.append(seg)
         if len(segments) >= max_depth:

@@ -11,5 +11,6 @@ from backend.models.fog import FogCell
 from backend.models.page import Page
 from backend.models.campaign import Campaign, CampaignMember
 from backend.models.character_sheet import CharacterSheet
+from backend.models.library_folder import LibraryFolder
 
-__all__ = ["Scene", "Token", "Asset", "FogCell", "Page", "Campaign", "CampaignMember", "CharacterSheet"]
+__all__ = ["Scene", "Token", "Asset", "FogCell", "Page", "Campaign", "CampaignMember", "CharacterSheet", "LibraryFolder"]

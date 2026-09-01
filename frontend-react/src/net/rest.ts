@@ -29,6 +29,15 @@ export interface PageOut {
   updated_at: string;
 }
 
+export interface LibraryFolderOut {
+  id: number;
+  campaign_id: string;
+  path: string;
+  name: string;
+  parent: string;
+  created_at: string;
+}
+
 export type SheetFieldType = "text" | "number" | "checkbox" | "textarea" | "image";
 
 export interface SheetFieldOut {
@@ -183,6 +192,58 @@ export class PageClient {
     });
     if (!res.ok) throw new Error(`Falha ao remover página (${res.status})`);
     return res.json();
+  }
+}
+
+export class FolderClient {
+  private readonly base: string;
+
+  constructor(private readonly identity: Identity) {
+    this.base = `/api/campaigns/${encodeURIComponent(identity.campaignId)}/folders`;
+  }
+
+  private headers(json = false): HeadersInit {
+    return {
+      Authorization: `Bearer ${this.identity.accessToken}`,
+      ...(json ? { "Content-Type": "application/json" } : {}),
+    };
+  }
+
+  async list(): Promise<LibraryFolderOut[]> {
+    const res = await fetch(this.base, { headers: this.headers() });
+    if (!res.ok) return readError(res, "Falha ao listar pastas");
+    return res.json();
+  }
+
+  async create(name: string, parent = ""): Promise<LibraryFolderOut> {
+    const res = await fetch(this.base, {
+      method: "POST",
+      headers: this.headers(true),
+      body: JSON.stringify({ name, parent }),
+    });
+    if (!res.ok) return readError(res, "Falha ao criar pasta");
+    return res.json();
+  }
+
+  async update(
+    folderId: number,
+    patch: { name?: string; parent?: string },
+  ): Promise<LibraryFolderOut> {
+    const res = await fetch(`/api/folders/${folderId}`, {
+      method: "PATCH",
+      headers: this.headers(true),
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) return readError(res, "Falha ao atualizar pasta");
+    return res.json();
+  }
+
+  async remove(folderId: number): Promise<void> {
+    const res = await fetch(`/api/folders/${folderId}`, {
+      method: "DELETE",
+      headers: this.headers(),
+    });
+    if (!res.ok) await readError(res, "Falha ao excluir pasta");
   }
 }
 

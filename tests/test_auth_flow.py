@@ -283,6 +283,109 @@ class AuthFlowTest(unittest.TestCase):
         self.assertEqual(removed.status_code, 200, removed.text)
         self.assertNotIn("codinome", {field["key"] for field in removed.json()["fields"]})
 
+    def test_library_folders_upload_and_realtime_share(self) -> None:
+        created = self.client.post(
+            "/api/auth/campaigns",
+            json={"campaign_name": "Biblioteca do Breu", "display_name": "Mestre Serena"},
+        ).json()
+        campaign_id = created["identity"]["campaign_id"]
+        gm_headers = {"Authorization": f"Bearer {created['access_token']}"}
+        player = self.client.post(
+            "/api/auth/join",
+            json={"invite_code": created["invite_code"], "display_name": "Ícaro"},
+        ).json()
+        player_headers = {"Authorization": f"Bearer {player['access_token']}"}
+
+        initial = self.client.get(
+            f"/api/campaigns/{campaign_id}/folders", headers=gm_headers
+        )
+        self.assertEqual(initial.status_code, 200, initial.text)
+        self.assertEqual(
+            {folder["path"] for folder in initial.json()},
+            {"Mapas", "Fichas", "Tokens", "Documentos"},
+        )
+        fichas = next(folder for folder in initial.json() if folder["path"] == "Fichas")
+
+        nested = self.client.post(
+            f"/api/campaigns/{campaign_id}/folders",
+            headers=gm_headers,
+            json={"name": "Investigadores", "parent": "Fichas"},
+        )
+        self.assertEqual(nested.status_code, 201, nested.text)
+        self.assertEqual(nested.json()["path"], "Fichas/Investigadores")
+
+        forbidden = self.client.post(
+            f"/api/campaigns/{campaign_id}/folders",
+            headers=player_headers,
+            json={"name": "Segredos", "parent": ""},
+        )
+        self.assertEqual(forbidden.status_code, 403, forbidden.text)
+
+        uploaded = self.client.post(
+            f"/api/campaigns/{campaign_id}/assets",
+            headers=gm_headers,
+            data={"kind": "pdf", "folder": "Fichas/Investigadores"},
+            files={"file": ("registro.pdf", b"%PDF-1.4 teste", "application/pdf")},
+        )
+        self.assertEqual(uploaded.status_code, 200, uploaded.text)
+        self.assertEqual(uploaded.json()["folder"], "Fichas/Investigadores")
+
+        renamed = self.client.patch(
+            f"/api/folders/{fichas['id']}",
+            headers=gm_headers,
+            json={"name": "Personagens"},
+        )
+        self.assertEqual(renamed.status_code, 200, renamed.text)
+        self.assertEqual(renamed.json()["path"], "Personagens")
+        assets = self.client.get(
+            f"/api/campaigns/{campaign_id}/assets", headers=gm_headers
+        ).json()
+        self.assertEqual(assets[0]["folder"], "Personagens/Investigadores")
+        folder_paths = {
+            folder["path"]
+            for folder in self.client.get(
+                f"/api/campaigns/{campaign_id}/folders", headers=gm_headers
+            ).json()
+        }
+        self.assertIn("Personagens/Investigadores", folder_paths)
+
+        nonempty = self.client.delete(
+            f"/api/folders/{renamed.json()['id']}", headers=gm_headers
+        )
+        self.assertEqual(nonempty.status_code, 409, nonempty.text)
+
+        empty = self.client.post(
+            f"/api/campaigns/{campaign_id}/folders",
+            headers=gm_headers,
+            json={"name": "Rascunhos", "parent": ""},
+        ).json()
+        removed = self.client.delete(f"/api/folders/{empty['id']}", headers=gm_headers)
+        self.assertEqual(removed.status_code, 200, removed.text)
+
+        with self.client.websocket_connect(f"/ws?token={created['access_token']}") as gm_ws:
+            self.assertEqual(gm_ws.receive_json()["type"], "presence:list")
+            with self.client.websocket_connect(f"/ws?token={player['access_token']}") as player_ws:
+                self.assertEqual(player_ws.receive_json()["type"], "presence:list")
+                self.assertEqual(gm_ws.receive_json()["type"], "presence:list")
+                gm_ws.send_json(
+                    {
+                        "type": "library:share",
+                        "payload": {
+                            "to": player["identity"]["member_id"],
+                            "item": {
+                                "id": str(uploaded.json()["id"]),
+                                "kind": "pdf",
+                                "name": "registro.pdf",
+                                "url": uploaded.json()["url"],
+                            },
+                        },
+                    }
+                )
+                shared = player_ws.receive_json()
+                self.assertEqual(shared["type"], "library:share")
+                self.assertEqual(shared["payload"]["from"], "Mestre Serena")
+                self.assertEqual(shared["payload"]["item"]["name"], "registro.pdf")
+
 
 if __name__ == "__main__":
     unittest.main()

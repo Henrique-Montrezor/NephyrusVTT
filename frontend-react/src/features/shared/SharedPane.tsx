@@ -13,7 +13,7 @@ export function SharedPane() {
             items.map((item) => (
               <a key={item.id} class="shared-row" href={item.url} target="_blank" rel="noopener noreferrer">
                 <span class="shared-name">{item.name}</span>
-                <span class="shared-meta">{item.kind} · {item.from}</span>
+                <span class="shared-meta">{item.kind} por {item.from}</span>
               </a>
             ))
           )}
