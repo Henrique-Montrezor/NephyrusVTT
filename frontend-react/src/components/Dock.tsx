@@ -7,6 +7,7 @@ import { TokensPane } from "@/features/tokens/TokensPane";
 import { ScenePane } from "@/features/scene/ScenePane";
 import { SharedPane } from "@/features/shared/SharedPane";
 import { LibraryPane } from "@/features/library/LibraryPane";
+import { SystemPane } from "@/features/system/SystemPane";
 
 const DOCK_W_KEY = "nephyrus:dock-width";
 
@@ -18,6 +19,7 @@ const TAB_LABELS = {
   scene: "Cena",
   shared: "Compartilhados",
   library: "Biblioteca",
+  system: "Sistema",
 } as const;
 
 function clampWidth(w: number): number {
@@ -78,6 +80,7 @@ export function Dock() {
         {tab === "scene" && <ScenePane />}
         {tab === "shared" && <SharedPane />}
         {tab === "library" && <LibraryPane />}
+        {tab === "system" && <SystemPane />}
       </div>
     </aside>
   );

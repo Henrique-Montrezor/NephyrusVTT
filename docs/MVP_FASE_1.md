@@ -103,12 +103,12 @@ Critério de aceite: o mestre importa uma ficha de sistema indie, define pelo me
 
 ### P0. Sistema customizado mínimo
 
-- [ ] Definir manifesto versionado do sistema
-- [ ] Mapear atributos, recursos, rolagens e referências à ficha
-- [ ] Criar editor guiado para dados e fórmulas simples
-- [ ] Validar fórmulas sem executar código arbitrário
-- [ ] Exportar e importar um pacote do sistema
-- [ ] Incluir um sistema de exemplo com licença compatível
+- [x] Definir manifesto versionado do sistema
+- [x] Mapear atributos, recursos, rolagens e referências à ficha
+- [x] Criar editor guiado para dados e fórmulas simples
+- [x] Validar fórmulas sem executar código arbitrário
+- [x] Exportar e importar um pacote do sistema
+- [x] Incluir um sistema de exemplo com licença compatível
 
 Critério de aceite: uma pessoa sem alterar código importa um PDF, cadastra atributos e cria uma rolagem usando esses atributos.
 

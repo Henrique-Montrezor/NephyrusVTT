@@ -78,6 +78,53 @@ export interface SheetFieldDraft {
   public: boolean;
 }
 
+export interface SystemAttribute {
+  key: string;
+  label: string;
+  kind: "number" | "text" | "boolean";
+  default: number | string | boolean;
+  sheet_field: string | null;
+}
+
+export interface SystemResource {
+  key: string;
+  label: string;
+  current: number;
+  maximum_formula: string;
+  sheet_field: string | null;
+}
+
+export interface SystemRoll {
+  key: string;
+  label: string;
+  formula: string;
+}
+
+export interface SystemManifest {
+  schema_version: "nephyrus.system/v1";
+  name: string;
+  version: string;
+  license: string;
+  attributes: SystemAttribute[];
+  resources: SystemResource[];
+  rolls: SystemRoll[];
+}
+
+export interface GameSystemOut {
+  id: string;
+  campaign_id: string;
+  manifest: SystemManifest;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FormulaCheckOut {
+  valid: boolean;
+  normalized: string;
+  references: string[];
+  preview: number;
+}
+
 async function readError(res: Response, fallback: string): Promise<never> {
   const detail = (await res.json().catch(() => ({}))) as { detail?: string };
   throw new Error(detail.detail || `${fallback} (${res.status})`);
@@ -335,6 +382,61 @@ export class SheetClient {
     const suffix = exported ? "export" : "pdf";
     const res = await fetch(`/api/sheets/${sheetId}/${suffix}`, { headers: this.headers() });
     if (!res.ok) return readError(res, exported ? "Falha ao exportar ficha" : "Falha ao abrir PDF");
+    return res.blob();
+  }
+}
+
+export class GameSystemClient {
+  private readonly base: string;
+
+  constructor(private readonly identity: Identity) {
+    this.base = `/api/campaigns/${encodeURIComponent(identity.campaignId)}/system`;
+  }
+
+  private headers(json = false): HeadersInit {
+    return {
+      Authorization: `Bearer ${this.identity.accessToken}`,
+      ...(json ? { "Content-Type": "application/json" } : {}),
+    };
+  }
+
+  async get(): Promise<GameSystemOut | null> {
+    const res = await fetch(this.base, { headers: this.headers() });
+    if (!res.ok) return readError(res, "Falha ao carregar sistema");
+    return res.json();
+  }
+
+  async save(manifest: SystemManifest): Promise<GameSystemOut> {
+    const res = await fetch(this.base, {
+      method: "PUT",
+      headers: this.headers(true),
+      body: JSON.stringify(manifest),
+    });
+    if (!res.ok) return readError(res, "Falha ao salvar sistema");
+    return res.json();
+  }
+
+  async check(formula: string, attributes: SystemAttribute[]): Promise<FormulaCheckOut> {
+    const res = await fetch(`${this.base}/formula-check`, {
+      method: "POST",
+      headers: this.headers(true),
+      body: JSON.stringify({ formula, attributes }),
+    });
+    if (!res.ok) return readError(res, "Fórmula inválida");
+    return res.json();
+  }
+
+  async import(file: File): Promise<GameSystemOut> {
+    const body = new FormData();
+    body.append("file", file);
+    const res = await fetch(`${this.base}/import`, { method: "POST", headers: this.headers(), body });
+    if (!res.ok) return readError(res, "Falha ao importar sistema");
+    return res.json();
+  }
+
+  async export(): Promise<Blob> {
+    const res = await fetch(`${this.base}/export`, { headers: this.headers() });
+    if (!res.ok) return readError(res, "Falha ao exportar sistema");
     return res.blob();
   }
 }

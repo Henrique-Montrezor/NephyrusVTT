@@ -386,6 +386,82 @@ class AuthFlowTest(unittest.TestCase):
                 self.assertEqual(shared["payload"]["from"], "Mestre Serena")
                 self.assertEqual(shared["payload"]["item"]["name"], "registro.pdf")
 
+    def test_custom_system_manifest_formulas_and_package_roundtrip(self) -> None:
+        created = self.client.post(
+            "/api/auth/campaigns",
+            json={"campaign_name": "Marchas do Norte", "display_name": "Mestre Maíra"},
+        ).json()
+        campaign_id = created["identity"]["campaign_id"]
+        gm_headers = {"Authorization": f"Bearer {created['access_token']}"}
+        player = self.client.post(
+            "/api/auth/join",
+            json={"invite_code": created["invite_code"], "display_name": "Caio"},
+        ).json()
+        player_headers = {"Authorization": f"Bearer {player['access_token']}"}
+        manifest = {
+            "schema_version": "nephyrus.system/v1",
+            "name": "Jornadas de Nephyrus",
+            "version": "1.0.0",
+            "license": "CC0-1.0",
+            "attributes": [
+                {"key": "forca", "label": "Força", "kind": "number", "default": 2},
+                {"key": "agilidade", "label": "Agilidade", "kind": "number", "default": 1},
+            ],
+            "resources": [
+                {"key": "vigor", "label": "Vigor", "current": 8, "maximum_formula": "6 + forca"}
+            ],
+            "rolls": [
+                {"key": "ataque", "label": "Ataque", "formula": "1d20 + forca"}
+            ],
+        }
+
+        forbidden = self.client.put(
+            f"/api/campaigns/{campaign_id}/system", headers=player_headers, json=manifest
+        )
+        self.assertEqual(forbidden.status_code, 403, forbidden.text)
+
+        saved = self.client.put(
+            f"/api/campaigns/{campaign_id}/system", headers=gm_headers, json=manifest
+        )
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertEqual(saved.json()["manifest"]["rolls"][0]["formula"], "1d20 + forca")
+
+        checked = self.client.post(
+            f"/api/campaigns/{campaign_id}/system/formula-check",
+            headers=gm_headers,
+            json={"formula": "2d6 + forca * 2", "attributes": manifest["attributes"]},
+        )
+        self.assertEqual(checked.status_code, 200, checked.text)
+        self.assertEqual(checked.json()["references"], ["forca"])
+        self.assertEqual(checked.json()["preview"], 11.0)
+
+        injection = self.client.post(
+            f"/api/campaigns/{campaign_id}/system/formula-check",
+            headers=gm_headers,
+            json={"formula": "__import__('os').system('echo unsafe')", "attributes": []},
+        )
+        self.assertEqual(injection.status_code, 422, injection.text)
+
+        exported = self.client.get(
+            f"/api/campaigns/{campaign_id}/system/export", headers=gm_headers
+        )
+        self.assertEqual(exported.status_code, 200, exported.text)
+        self.assertIn("attachment", exported.headers["content-disposition"])
+
+        imported_campaign = self.client.post(
+            "/api/auth/campaigns",
+            json={"campaign_name": "Costa Cinzenta", "display_name": "Mestre Ravi"},
+        ).json()
+        imported_id = imported_campaign["identity"]["campaign_id"]
+        imported_headers = {"Authorization": f"Bearer {imported_campaign['access_token']}"}
+        imported = self.client.post(
+            f"/api/campaigns/{imported_id}/system/import",
+            headers=imported_headers,
+            files={"file": ("sistema.nephyrus.json", exported.content, "application/json")},
+        )
+        self.assertEqual(imported.status_code, 200, imported.text)
+        self.assertEqual(imported.json()["manifest"]["name"], manifest["name"])
+
 
 if __name__ == "__main__":
     unittest.main()

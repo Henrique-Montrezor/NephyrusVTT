@@ -6,7 +6,7 @@ import { signal } from "@preact/signals";
 import type { SceneListItem } from "@/net/types";
 
 export type Theme = "light" | "dark";
-export type DockTab = "chat" | "dice" | "sheet" | "tokens" | "scene" | "shared" | "library";
+export type DockTab = "chat" | "dice" | "sheet" | "tokens" | "scene" | "shared" | "library" | "system";
 
 const THEME_KEY = "nephyrus:theme";
 

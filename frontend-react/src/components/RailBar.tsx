@@ -83,6 +83,12 @@ const TABS: TabDef[] = [
       </svg>
     ),
   },
+  {
+    id: "system",
+    label: "Sistema",
+    gmOnly: true,
+    icon: <span class="tab-glyph" aria-hidden="true">ƒ</span>,
+  },
 ];
 
 export function RailBar() {
