@@ -170,14 +170,15 @@ export function SheetEditor({ client, sheet, onChange, onStatus }: SheetEditorPr
   };
 
   const selectField = (field: SheetFieldOut) => {
-    if (field.source !== "custom") return;
     setEditingKey(field.key);
     setFieldType(field.field_type);
     setFieldLabel(field.label);
     setFieldKey(field.key);
     setFieldPublic(field.public);
     setPendingRect(field.rect);
-    onStatus("Campo selecionado. Arraste outra área para reposicionar.");
+    onStatus(field.source === "custom"
+      ? "Campo selecionado. Arraste outra área para reposicionar."
+      : "Campo detectado no PDF. Você pode alterar o nome e o tipo.");
   };
 
   const resetForm = () => {
@@ -202,8 +203,11 @@ export function SheetEditor({ client, sheet, onChange, onStatus }: SheetEditorPr
         rect: pendingRect,
         public: fieldPublic,
       };
+      const editingField = sheet.fields.find((field) => field.key === editingKey);
       const updated = editingKey
-        ? await client.updateField(sheet.id, editingKey, draft)
+        ? await client.updateField(sheet.id, editingKey, editingField?.source === "acroform"
+          ? { label: draft.label, field_type: draft.field_type, public: draft.public }
+          : draft)
         : await client.addField(sheet.id, draft);
       onChange(updated);
       onStatus(editingKey ? "Campo atualizado." : "Campo criado.");
@@ -230,6 +234,7 @@ export function SheetEditor({ client, sheet, onChange, onStatus }: SheetEditorPr
   };
 
   const visibleFields = sheet.fields.filter((field) => field.page === pageNumber);
+  const editingField = sheet.fields.find((field) => field.key === editingKey);
 
   return (
     <div class="sheet-editor">
@@ -247,7 +252,7 @@ export function SheetEditor({ client, sheet, onChange, onStatus }: SheetEditorPr
         </div>
       </div>
       <div class="sheet-editor-hint">
-        <p>{drawing ? "Arraste sobre a página. Toque em um campo customizado para editar." : "Use o gesto de arrastar para navegar pela página ampliada."}</p>
+        <p>{drawing ? "Arraste para criar um campo. Toque em qualquer campo para alterar o tipo." : "Use o gesto de arrastar para navegar pela página ampliada."}</p>
         <button type="button" aria-pressed={!drawing} onClick={() => setDrawing((value) => !value)}>{drawing ? "Navegar" : "Desenhar"}</button>
       </div>
       <div class="sheet-editor-viewport" ref={viewportRef}>
@@ -273,7 +278,7 @@ export function SheetEditor({ client, sheet, onChange, onStatus }: SheetEditorPr
           {!editingKey && <label><span>Identificador</span><input value={fieldKey} placeholder={defaultKey(fieldLabel, sheet.fields.length + 1)} onInput={(event) => setFieldKey((event.target as HTMLInputElement).value)} /></label>}
           <label class="sheet-editor-public"><input type="checkbox" checked={fieldPublic} onChange={(event) => setFieldPublic((event.target as HTMLInputElement).checked)} /><span>Visível para a mesa</span></label>
           <div class="sheet-editor-actions">
-            {editingKey && <button type="button" class="btn-ghost danger" disabled={busy} onClick={() => void removeField()}>Remover</button>}
+            {editingKey && editingField?.source === "custom" && <button type="button" class="btn-ghost danger" disabled={busy} onClick={() => void removeField()}>Remover</button>}
             <button type="button" class="btn-ghost" disabled={busy} onClick={resetForm}>Cancelar</button>
             <button type="submit" class="btn-primary" disabled={busy || !fieldLabel.trim()}>{busy ? "Salvando…" : editingKey ? "Atualizar" : "Criar campo"}</button>
           </div>

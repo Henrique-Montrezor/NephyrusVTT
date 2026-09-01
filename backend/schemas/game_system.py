@@ -1,4 +1,4 @@
-"""Contratos do sistema customizado mínimo."""
+"""Contratos do sistema de regras baseado em uma ficha PDF."""
 
 from __future__ import annotations
 
@@ -7,9 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-
-SYSTEM_SCHEMA = "nephyrus.system/v1"
-Key = str
+SYSTEM_SCHEMA = "nephyrus.system/v2"
 
 
 def _valid_key(value: str) -> str:
@@ -19,28 +17,8 @@ def _valid_key(value: str) -> str:
     return value
 
 
-class SystemAttribute(BaseModel):
-    key: Key = Field(min_length=1, max_length=48)
-    label: str = Field(min_length=1, max_length=80)
-    kind: Literal["number", "text", "boolean"] = "number"
-    default: float | str | bool = 0
-    sheet_field: str | None = Field(default=None, max_length=120)
-
-    _key = field_validator("key")(_valid_key)
-
-
-class SystemResource(BaseModel):
-    key: Key = Field(min_length=1, max_length=48)
-    label: str = Field(min_length=1, max_length=80)
-    current: float = 0
-    maximum_formula: str = Field(default="1", min_length=1, max_length=180)
-    sheet_field: str | None = Field(default=None, max_length=120)
-
-    _key = field_validator("key")(_valid_key)
-
-
 class SystemRoll(BaseModel):
-    key: Key = Field(min_length=1, max_length=48)
+    key: str = Field(min_length=1, max_length=48)
     label: str = Field(min_length=1, max_length=80)
     formula: str = Field(min_length=1, max_length=180)
 
@@ -48,18 +26,17 @@ class SystemRoll(BaseModel):
 
 
 class SystemManifest(BaseModel):
-    schema_version: Literal["nephyrus.system/v1"] = SYSTEM_SCHEMA
-    name: str = Field(default="Sistema da campanha", min_length=1, max_length=100)
+    schema_version: Literal["nephyrus.system/v2"] = SYSTEM_SCHEMA
+    name: str = Field(default="Regras da campanha", min_length=1, max_length=100)
     version: str = Field(default="1.0.0", pattern=r"^\d+\.\d+\.\d+$")
     license: str = Field(default="Uso privado", min_length=1, max_length=100)
-    attributes: list[SystemAttribute] = Field(default_factory=list, max_length=80)
-    resources: list[SystemResource] = Field(default_factory=list, max_length=40)
+    base_sheet_id: str | None = Field(default=None, max_length=32)
     rolls: list[SystemRoll] = Field(default_factory=list, max_length=80)
 
 
 class FormulaCheckIn(BaseModel):
     formula: str = Field(min_length=1, max_length=180)
-    attributes: list[SystemAttribute] = Field(default_factory=list, max_length=80)
+    sheet_id: str = Field(min_length=32, max_length=32)
 
 
 class FormulaCheckOut(BaseModel):

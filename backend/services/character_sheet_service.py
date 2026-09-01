@@ -329,15 +329,15 @@ def update_custom_field(sheet_id: str, field_key: str, patch: dict[str, Any]) ->
         field = next((item for item in fields if item["key"] == field_key), None)
         if field is None:
             raise SheetError("campo não encontrado")
-        if field["source"] != "custom":
-            raise SheetError("campos AcroForm não podem ser reposicionados")
+        is_custom = field["source"] == "custom"
         page = patch.get("page")
         rect = patch.get("rect")
-        if page is not None and page > sheet.page_count:
+        if is_custom and page is not None and page > sheet.page_count:
             raise SheetError("página do campo inválida")
-        if rect is not None and any(not 0 <= float(value) <= 100 for value in rect):
+        if is_custom and rect is not None and any(not 0 <= float(value) <= 100 for value in rect):
             raise SheetError("posição do campo inválida")
-        for key in ("label", "field_type", "page", "rect", "public"):
+        editable_keys = ("label", "field_type", "page", "rect", "public") if is_custom else ("label", "field_type", "public")
+        for key in editable_keys:
             if patch.get(key) is not None:
                 field[key] = patch[key]
         sheet.fields_json = json.dumps(fields, ensure_ascii=False)

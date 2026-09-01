@@ -1,73 +1,53 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
+import { CheckCircle, DiceFive, FilePdf, Plus, UploadSimple } from "@phosphor-icons/react";
 import {
   GameSystemClient,
+  SheetClient,
+  type CharacterSheetOut,
   type FormulaCheckOut,
-  type SystemAttribute,
   type SystemManifest,
-  type SystemResource,
   type SystemRoll,
 } from "@/net/rest";
 import { identity } from "@/state/identity";
+import { SheetEditor } from "@/features/sheet/SheetEditor";
 
-type Section = "attributes" | "resources" | "rolls";
+type View = "template" | "rolls";
 
 const EMPTY: SystemManifest = {
-  schema_version: "nephyrus.system/v1",
-  name: "Sistema da campanha",
+  schema_version: "nephyrus.system/v2",
+  name: "Regras da campanha",
   version: "1.0.0",
   license: "Uso privado",
-  attributes: [],
-  resources: [],
+  base_sheet_id: null,
   rolls: [],
 };
 
-const EXAMPLE: SystemManifest = {
-  schema_version: "nephyrus.system/v1",
-  name: "Jornadas de Nephyrus",
-  version: "1.0.0",
-  license: "CC0-1.0",
-  attributes: [
-    { key: "forca", label: "Força", kind: "number", default: 2, sheet_field: null },
-    { key: "agilidade", label: "Agilidade", kind: "number", default: 1, sheet_field: null },
-    { key: "espirito", label: "Espírito", kind: "number", default: 0, sheet_field: null },
-  ],
-  resources: [
-    { key: "vigor", label: "Vigor", current: 8, maximum_formula: "6 + forca", sheet_field: null },
-  ],
-  rolls: [
-    { key: "ataque", label: "Ataque", formula: "1d20 + forca" },
-    { key: "iniciativa", label: "Iniciativa", formula: "1d20 + agilidade" },
-  ],
-};
-
 const clone = (manifest: SystemManifest): SystemManifest => JSON.parse(JSON.stringify(manifest));
-const slug = (value: string): string => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 48);
 
-function download(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+function makeKey(label: string, fallback: number): string {
+  return label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 48) || `rolagem_${fallback}`;
 }
 
 export function SystemPane() {
   const session = identity.value;
-  const client = useMemo(() => new GameSystemClient(session), [session.accessToken, session.campaignId]);
+  const systemClient = useMemo(() => new GameSystemClient(session), [session.accessToken, session.campaignId]);
+  const sheetClient = useMemo(() => new SheetClient(session), [session.accessToken, session.campaignId]);
   const [manifest, setManifest] = useState<SystemManifest>(clone(EMPTY));
-  const [section, setSection] = useState<Section>("attributes");
-  const [status, setStatus] = useState("Carregando configuração...");
+  const [template, setTemplate] = useState<CharacterSheetOut | null>(null);
+  const [view, setView] = useState<View>("template");
+  const [checks, setChecks] = useState<Record<string, FormulaCheckOut>>({});
+  const [status, setStatus] = useState("Preparando o sistema de regras...");
   const [tone, setTone] = useState<"neutral" | "success" | "error">("neutral");
   const [busy, setBusy] = useState(true);
-  const [checks, setChecks] = useState<Record<string, FormulaCheckOut>>({});
 
   useEffect(() => {
     let alive = true;
-    void client.get().then((result) => {
+    void Promise.all([systemClient.get(), systemClient.template()]).then(([system, base]) => {
       if (!alive) return;
-      setManifest(clone(result?.manifest ?? EMPTY));
-      setStatus(result ? "Sistema pronto para edição." : "Comece do zero ou carregue o exemplo CC0.");
+      setManifest(clone(system?.manifest ?? EMPTY));
+      setTemplate(base);
+      setStatus(base ? "Modelo carregado. Edite os campos ou configure as rolagens." : "Adicione o PDF que será a ficha padrão da campanha.");
       setBusy(false);
     }).catch((error) => {
       if (!alive) return;
@@ -76,116 +56,168 @@ export function SystemPane() {
       setBusy(false);
     });
     return () => { alive = false; };
-  }, [client]);
+  }, [systemClient]);
 
-  const update = <K extends keyof SystemManifest,>(key: K, value: SystemManifest[K]) => setManifest((current) => ({ ...current, [key]: value }));
+  const uploadTemplate = async (file?: File) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const created = await systemClient.uploadTemplate(file);
+      setTemplate(created);
+      setManifest((current) => ({ ...current, base_sheet_id: created.id }));
+      setView("template");
+      setChecks({});
+      setStatus(created.fields.length
+        ? `${created.fields.length} campos detectados no PDF. Revise os tipos antes de criar rolagens.`
+        : "PDF adicionado. Desenhe os campos que poderão ser usados nas rolagens.");
+      setTone("success");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Não foi possível importar o PDF.");
+      setTone("error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const useExample = async () => {
+    setBusy(true);
+    try {
+      const created = await systemClient.exampleTemplate();
+      const system = await systemClient.get();
+      setTemplate(created);
+      setManifest(clone(system?.manifest ?? EMPTY));
+      setView("template");
+      setStatus("Modelo CC0 criado com campos numéricos e duas rolagens de exemplo.");
+      setTone("success");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Não foi possível criar o exemplo.");
+      setTone("error");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const save = async () => {
     setBusy(true);
     try {
-      const result = await client.save(manifest);
-      setManifest(clone(result.manifest));
-      setStatus("Sistema salvo. As fórmulas foram validadas com segurança.");
+      const saved = await systemClient.save(manifest);
+      setManifest(clone(saved.manifest));
+      setStatus("Ficha base e rolagens salvas.");
       setTone("success");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Não foi possível salvar o sistema.");
+      setStatus(error instanceof Error ? error.message : "Não foi possível salvar as regras.");
       setTone("error");
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const checkFormula = async (key: string, formula: string) => {
+  const updateRoll = (index: number, next: SystemRoll) => {
+    setManifest((current) => ({ ...current, rolls: current.rolls.map((roll, i) => i === index ? next : roll) }));
+    setChecks((current) => { const copy = { ...current }; delete copy[next.key]; return copy; });
+  };
+
+  const addRoll = () => {
+    const count = manifest.rolls.length + 1;
+    setManifest((current) => ({
+      ...current,
+      rolls: [...current.rolls, { key: `rolagem_${count}`, label: "Nova rolagem", formula: "1d20" }],
+    }));
+  };
+
+  const checkRoll = async (roll: SystemRoll) => {
+    if (!template) return;
     try {
-      const result = await client.check(formula, manifest.attributes);
-      setChecks((current) => ({ ...current, [key]: result }));
-      setStatus(`Fórmula válida. Prévia média: ${result.preview}.`);
+      const result = await systemClient.check(roll.formula, template.id);
+      setChecks((current) => ({ ...current, [roll.key]: result }));
+      setStatus(`Fórmula válida. Resultado médio com a ficha base: ${result.preview}.`);
       setTone("success");
     } catch (error) {
-      setChecks((current) => { const next = { ...current }; delete next[key]; return next; });
       setStatus(error instanceof Error ? error.message : "Fórmula inválida.");
       setTone("error");
     }
   };
 
-  const importFile = async (file: File | undefined) => {
-    if (!file) return;
-    setBusy(true);
-    try {
-      const result = await client.import(file);
-      setManifest(clone(result.manifest));
-      setStatus("Pacote importado e validado.");
-      setTone("success");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Pacote inválido.");
-      setTone("error");
-    } finally { setBusy(false); }
-  };
-
-  const addAttribute = () => update("attributes", [...manifest.attributes, { key: `atributo_${manifest.attributes.length + 1}`, label: "Novo atributo", kind: "number", default: 0, sheet_field: null }]);
-  const addResource = () => update("resources", [...manifest.resources, { key: `recurso_${manifest.resources.length + 1}`, label: "Novo recurso", current: 0, maximum_formula: "1", sheet_field: null }]);
-  const addRoll = () => update("rolls", [...manifest.rolls, { key: `rolagem_${manifest.rolls.length + 1}`, label: "Nova rolagem", formula: "1d20" }]);
+  const numericFields = template?.fields.filter((field) => field.field_type === "number") ?? [];
 
   return (
     <section class="tab-pane system-pane active" aria-busy={busy}>
       <header class="system-header">
-        <div><h2>Regras da campanha</h2><p>Defina dados da ficha e rolagens sem escrever código.</p></div>
-        <div class="system-header-actions">
-          <label class="btn-ghost system-import">Importar<input type="file" accept="application/json,.json" onChange={(event) => void importFile((event.target as HTMLInputElement).files?.[0])} /></label>
-          <button type="button" class="btn-ghost" disabled={busy} onClick={() => void client.export().then((blob) => download(blob, `${slug(manifest.name) || "sistema"}.nephyrus.json`)).catch((error) => { setStatus(error.message); setTone("error"); })}>Exportar</button>
+        <div>
+          <h2>Ficha padrão e rolagens</h2>
+          <p>O PDF define os campos. As fórmulas usam os campos numéricos dessa ficha.</p>
         </div>
+        {template && (
+          <label class="btn-ghost system-import">
+            <UploadSimple size={17} weight="bold" /> Trocar PDF
+            <input type="file" accept="application/pdf,.pdf" onChange={(event) => void uploadTemplate((event.target as HTMLInputElement).files?.[0])} />
+          </label>
+        )}
       </header>
 
-      <div class="system-identity">
-        <label><span>Nome do sistema</span><input value={manifest.name} onInput={(event) => update("name", (event.target as HTMLInputElement).value)} /></label>
-        <label><span>Versão</span><input value={manifest.version} inputMode="numeric" onInput={(event) => update("version", (event.target as HTMLInputElement).value)} /></label>
-        <label><span>Licença</span><input value={manifest.license} onInput={(event) => update("license", (event.target as HTMLInputElement).value)} /></label>
-      </div>
-
-      {!busy && !manifest.attributes.length && !manifest.resources.length && !manifest.rolls.length && (
-        <div class="system-empty">
-          <strong>Seu sistema começa com três decisões</strong>
-          <p>Cadastre atributos, recursos que possuem limite e as rolagens usadas durante a sessão.</p>
-          <button type="button" class="btn-ghost" onClick={() => { setManifest(clone(EXAMPLE)); setStatus("Exemplo CC0 carregado. Revise e salve para usar."); }}>Carregar exemplo CC0</button>
+      {!template && !busy ? (
+        <div class="system-template-empty">
+          <div class="system-template-icon"><FilePdf size={32} weight="duotone" /></div>
+          <strong>Adicione o modelo base de ficha</strong>
+          <p>Use um PDF preenchível ou desenhe novos campos sobre qualquer ficha. Os campos numéricos ficarão disponíveis nas fórmulas.</p>
+          <label class="btn-primary system-template-upload">
+            <UploadSimple size={18} weight="bold" /> Escolher PDF
+            <input type="file" accept="application/pdf,.pdf" onChange={(event) => void uploadTemplate((event.target as HTMLInputElement).files?.[0])} />
+          </label>
+          <button type="button" class="btn-ghost system-example-button" onClick={() => void useExample()}>Usar modelo de exemplo CC0</button>
         </div>
-      )}
+      ) : template ? (
+        <>
+          <div class="system-template-summary">
+            <FilePdf size={24} weight="duotone" />
+            <div><strong>{template.source_name}</strong><span>{template.page_count} pág. | {template.fields.length} campos | {numericFields.length} numéricos</span></div>
+            <CheckCircle size={20} weight="fill" aria-label="Modelo ativo" />
+          </div>
 
-      <nav class="system-sections" aria-label="Partes do sistema">
-        {(["attributes", "resources", "rolls"] as Section[]).map((item) => {
-          const labels = { attributes: "Atributos", resources: "Recursos", rolls: "Rolagens" };
-          return <button key={item} type="button" class={section === item ? "active" : ""} onClick={() => setSection(item)}>{labels[item]}<small>{manifest[item].length}</small></button>;
-        })}
-      </nav>
+          <nav class="system-view-tabs" aria-label="Configuração do sistema">
+            <button type="button" class={view === "template" ? "active" : ""} onClick={() => setView("template")}><FilePdf size={18} /> Editar ficha</button>
+            <button type="button" class={view === "rolls" ? "active" : ""} onClick={() => setView("rolls")}><DiceFive size={18} /> Rolagens <small>{manifest.rolls.length}</small></button>
+          </nav>
 
-      <div class="system-list">
-        {busy && status.startsWith("Carregando") && <div class="system-loading" aria-hidden="true"><span /><span /><span /></div>}
-        {section === "attributes" && manifest.attributes.map((item, index) => (
-          <AttributeRow key={`${index}-${item.key}`} item={item} onChange={(next) => update("attributes", manifest.attributes.map((value, i) => i === index ? next : value))} onRemove={() => update("attributes", manifest.attributes.filter((_, i) => i !== index))} />
-        ))}
-        {section === "resources" && manifest.resources.map((item, index) => (
-          <ResourceRow key={`${index}-${item.key}`} item={item} check={checks[`resource:${item.key}`]} onCheck={() => void checkFormula(`resource:${item.key}`, item.maximum_formula)} onChange={(next) => update("resources", manifest.resources.map((value, i) => i === index ? next : value))} onRemove={() => update("resources", manifest.resources.filter((_, i) => i !== index))} />
-        ))}
-        {section === "rolls" && manifest.rolls.map((item, index) => (
-          <RollRow key={`${index}-${item.key}`} item={item} check={checks[`roll:${item.key}`]} onCheck={() => void checkFormula(`roll:${item.key}`, item.formula)} onChange={(next) => update("rolls", manifest.rolls.map((value, i) => i === index ? next : value))} onRemove={() => update("rolls", manifest.rolls.filter((_, i) => i !== index))} />
-        ))}
-        {!busy && manifest[section].length === 0 && <p class="system-list-empty">Nada aqui ainda. Adicione o primeiro item para continuar.</p>}
-      </div>
+          {view === "template" ? (
+            <div class="system-sheet-editor">
+              <SheetEditor client={sheetClient} sheet={template} onChange={setTemplate} onStatus={(message) => { setStatus(message); setTone("neutral"); }} />
+            </div>
+          ) : (
+            <div class="system-roll-workspace">
+              <aside class="system-field-reference">
+                <strong>Campos numéricos</strong>
+                <p>Use a chave em qualquer fórmula.</p>
+                {numericFields.length ? numericFields.map((field) => (
+                  <div key={field.key}><span>{field.label}</span><code>{field.key}</code></div>
+                )) : <div class="system-no-fields">Crie campos do tipo Número na ficha.</div>}
+              </aside>
 
-      <div class="system-footer">
-        <button type="button" class="btn-ghost" onClick={section === "attributes" ? addAttribute : section === "resources" ? addResource : addRoll}>Adicionar {section === "attributes" ? "atributo" : section === "resources" ? "recurso" : "rolagem"}</button>
-        <button type="button" class="btn-primary" disabled={busy} onClick={() => void save()}>{busy ? "Validando..." : "Salvar sistema"}</button>
-      </div>
+              <div class="system-rolls">
+                {manifest.rolls.map((roll, index) => (
+                  <article class="system-roll" key={`${index}-${roll.key}`}>
+                    <div class="system-roll-head">
+                      <label><span>Nome da rolagem</span><input value={roll.label} onInput={(event) => { const label = (event.target as HTMLInputElement).value; updateRoll(index, { ...roll, label, key: makeKey(label, index + 1) }); }} /></label>
+                      <button type="button" onClick={() => setManifest((current) => ({ ...current, rolls: current.rolls.filter((_, i) => i !== index) }))}>Remover</button>
+                    </div>
+                    <label class="system-formula"><span>Fórmula</span><div><DiceFive size={19} /><input value={roll.formula} placeholder="1d20 + forca" onInput={(event) => updateRoll(index, { ...roll, formula: (event.target as HTMLInputElement).value })} /><button type="button" onClick={() => void checkRoll(roll)}>Testar</button></div></label>
+                    {checks[roll.key] && <p class="system-formula-result"><CheckCircle size={16} weight="fill" /> Válida. Média {checks[roll.key].preview}{checks[roll.key].references.length ? ` usando ${checks[roll.key].references.join(", ")}` : ""}.</p>}
+                  </article>
+                ))}
+                {!manifest.rolls.length && <div class="system-rolls-empty"><DiceFive size={28} weight="duotone" /><strong>Nenhuma rolagem configurada</strong><p>Crie ataques, testes e defesas usando os campos da ficha base.</p></div>}
+                <button type="button" class="btn-ghost system-add-roll" onClick={addRoll} disabled={!numericFields.length}><Plus size={17} weight="bold" /> Adicionar rolagem</button>
+              </div>
+            </div>
+          )}
+
+          <footer class="system-footer">
+            <span>{numericFields.length ? `${numericFields.length} campos disponíveis para fórmulas` : "Adicione campos numéricos antes de criar rolagens"}</span>
+            <button type="button" class="btn-primary" disabled={busy} onClick={() => void save()}>{busy ? "Validando..." : "Salvar regras"}</button>
+          </footer>
+        </>
+      ) : <div class="system-loading" aria-hidden="true"><span /><span /><span /></div>}
+
       {status && <p class={`system-status ${tone}`} role="status">{status}</p>}
     </section>
   );
-}
-
-function AttributeRow({ item, onChange, onRemove }: { item: SystemAttribute; onChange: (item: SystemAttribute) => void; onRemove: () => void }) {
-  return <article class="system-row"><div class="system-row-grid"><label><span>Nome</span><input value={item.label} onInput={(e) => { const label = (e.target as HTMLInputElement).value; onChange({ ...item, label, key: slug(label) || item.key }); }} /></label><label><span>Chave</span><input value={item.key} onInput={(e) => onChange({ ...item, key: (e.target as HTMLInputElement).value })} /></label><label><span>Tipo</span><select value={item.kind} onChange={(e) => onChange({ ...item, kind: (e.target as HTMLSelectElement).value as SystemAttribute["kind"] })}><option value="number">Número</option><option value="text">Texto</option><option value="boolean">Marcador</option></select></label><label><span>Valor inicial</span><input value={String(item.default)} disabled={item.kind === "boolean"} onInput={(e) => onChange({ ...item, default: item.kind === "number" ? Number((e.target as HTMLInputElement).value) : (e.target as HTMLInputElement).value })} /></label><label class="sheet-reference"><span>Campo da ficha</span><input value={item.sheet_field ?? ""} placeholder="Opcional" onInput={(e) => onChange({ ...item, sheet_field: (e.target as HTMLInputElement).value || null })} /></label></div><button type="button" class="system-remove" onClick={onRemove}>Remover</button></article>;
-}
-
-function ResourceRow({ item, check, onChange, onCheck, onRemove }: { item: SystemResource; check?: FormulaCheckOut; onChange: (item: SystemResource) => void; onCheck: () => void; onRemove: () => void }) {
-  return <article class="system-row"><div class="system-row-grid"><label><span>Nome</span><input value={item.label} onInput={(e) => onChange({ ...item, label: (e.target as HTMLInputElement).value })} /></label><label><span>Chave</span><input value={item.key} onInput={(e) => onChange({ ...item, key: (e.target as HTMLInputElement).value })} /></label><label><span>Valor atual</span><input type="number" value={item.current} onInput={(e) => onChange({ ...item, current: Number((e.target as HTMLInputElement).value) })} /></label><label class="formula-field"><span>Máximo</span><div><input value={item.maximum_formula} onInput={(e) => onChange({ ...item, maximum_formula: (e.target as HTMLInputElement).value })} /><button type="button" onClick={onCheck}>Testar</button></div>{check && <small>Prévia {check.preview}</small>}</label><label class="sheet-reference"><span>Campo da ficha</span><input value={item.sheet_field ?? ""} placeholder="Opcional" onInput={(e) => onChange({ ...item, sheet_field: (e.target as HTMLInputElement).value || null })} /></label></div><button type="button" class="system-remove" onClick={onRemove}>Remover</button></article>;
-}
-
-function RollRow({ item, check, onChange, onCheck, onRemove }: { item: SystemRoll; check?: FormulaCheckOut; onChange: (item: SystemRoll) => void; onCheck: () => void; onRemove: () => void }) {
-  return <article class="system-row"><div class="system-row-grid roll"><label><span>Nome</span><input value={item.label} onInput={(e) => onChange({ ...item, label: (e.target as HTMLInputElement).value })} /></label><label><span>Chave</span><input value={item.key} onInput={(e) => onChange({ ...item, key: (e.target as HTMLInputElement).value })} /></label><label class="formula-field"><span>Fórmula</span><div><input value={item.formula} placeholder="1d20 + forca" onInput={(e) => onChange({ ...item, formula: (e.target as HTMLInputElement).value })} /><button type="button" onClick={onCheck}>Testar</button></div>{check && <small>{check.references.length ? `Usa ${check.references.join(", ")}` : "Sem atributos"}. Prévia {check.preview}</small>}</label></div><button type="button" class="system-remove" onClick={onRemove}>Remover</button></article>;
 }

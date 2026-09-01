@@ -398,18 +398,39 @@ class AuthFlowTest(unittest.TestCase):
             json={"invite_code": created["invite_code"], "display_name": "Caio"},
         ).json()
         player_headers = {"Authorization": f"Bearer {player['access_token']}"}
+
+        source = BytesIO()
+        pdf = canvas.Canvas(source)
+        pdf.drawString(72, 780, "Ficha base da campanha")
+        pdf.acroForm.textfield(name="forca", x=72, y=720, width=120, height=24)
+        pdf.showPage()
+        pdf.save()
+        uploaded_template = self.client.post(
+            f"/api/campaigns/{campaign_id}/system/template",
+            headers=gm_headers,
+            files={"file": ("modelo-base.pdf", source.getvalue(), "application/pdf")},
+        )
+        self.assertEqual(uploaded_template.status_code, 200, uploaded_template.text)
+        template_id = uploaded_template.json()["id"]
+        number_field = self.client.put(
+            f"/api/sheets/{template_id}/fields/forca",
+            headers=gm_headers,
+            json={"label": "Força", "field_type": "number"},
+        )
+        self.assertEqual(number_field.status_code, 200, number_field.text)
+        values = self.client.patch(
+            f"/api/sheets/{template_id}/values",
+            headers=gm_headers,
+            json={"values": {"forca": 2}},
+        )
+        self.assertEqual(values.status_code, 200, values.text)
+
         manifest = {
-            "schema_version": "nephyrus.system/v1",
+            "schema_version": "nephyrus.system/v2",
             "name": "Jornadas de Nephyrus",
             "version": "1.0.0",
             "license": "CC0-1.0",
-            "attributes": [
-                {"key": "forca", "label": "Força", "kind": "number", "default": 2},
-                {"key": "agilidade", "label": "Agilidade", "kind": "number", "default": 1},
-            ],
-            "resources": [
-                {"key": "vigor", "label": "Vigor", "current": 8, "maximum_formula": "6 + forca"}
-            ],
+            "base_sheet_id": template_id,
             "rolls": [
                 {"key": "ataque", "label": "Ataque", "formula": "1d20 + forca"}
             ],
@@ -429,7 +450,7 @@ class AuthFlowTest(unittest.TestCase):
         checked = self.client.post(
             f"/api/campaigns/{campaign_id}/system/formula-check",
             headers=gm_headers,
-            json={"formula": "2d6 + forca * 2", "attributes": manifest["attributes"]},
+            json={"formula": "2d6 + forca * 2", "sheet_id": template_id},
         )
         self.assertEqual(checked.status_code, 200, checked.text)
         self.assertEqual(checked.json()["references"], ["forca"])
@@ -438,9 +459,15 @@ class AuthFlowTest(unittest.TestCase):
         injection = self.client.post(
             f"/api/campaigns/{campaign_id}/system/formula-check",
             headers=gm_headers,
-            json={"formula": "__import__('os').system('echo unsafe')", "attributes": []},
+            json={"formula": "__import__('os').system('echo unsafe')", "sheet_id": template_id},
         )
         self.assertEqual(injection.status_code, 422, injection.text)
+
+        template = self.client.get(
+            f"/api/campaigns/{campaign_id}/system/template", headers=gm_headers
+        )
+        self.assertEqual(template.status_code, 200, template.text)
+        self.assertEqual(template.json()["fields"][0]["key"], "forca")
 
         exported = self.client.get(
             f"/api/campaigns/{campaign_id}/system/export", headers=gm_headers
@@ -461,6 +488,20 @@ class AuthFlowTest(unittest.TestCase):
         )
         self.assertEqual(imported.status_code, 200, imported.text)
         self.assertEqual(imported.json()["manifest"]["name"], manifest["name"])
+
+        example = self.client.post(
+            f"/api/campaigns/{imported_id}/system/template/example",
+            headers=imported_headers,
+        )
+        self.assertEqual(example.status_code, 200, example.text)
+        self.assertEqual(
+            {field["field_type"] for field in example.json()["fields"]}, {"number"}
+        )
+        example_system = self.client.get(
+            f"/api/campaigns/{imported_id}/system", headers=imported_headers
+        )
+        self.assertEqual(example_system.json()["manifest"]["license"], "CC0-1.0")
+        self.assertEqual(len(example_system.json()["manifest"]["rolls"]), 2)
 
 
 if __name__ == "__main__":

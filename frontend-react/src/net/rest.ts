@@ -78,22 +78,6 @@ export interface SheetFieldDraft {
   public: boolean;
 }
 
-export interface SystemAttribute {
-  key: string;
-  label: string;
-  kind: "number" | "text" | "boolean";
-  default: number | string | boolean;
-  sheet_field: string | null;
-}
-
-export interface SystemResource {
-  key: string;
-  label: string;
-  current: number;
-  maximum_formula: string;
-  sheet_field: string | null;
-}
-
 export interface SystemRoll {
   key: string;
   label: string;
@@ -101,12 +85,11 @@ export interface SystemRoll {
 }
 
 export interface SystemManifest {
-  schema_version: "nephyrus.system/v1";
+  schema_version: "nephyrus.system/v2";
   name: string;
   version: string;
   license: string;
-  attributes: SystemAttribute[];
-  resources: SystemResource[];
+  base_sheet_id: string | null;
   rolls: SystemRoll[];
 }
 
@@ -416,13 +399,33 @@ export class GameSystemClient {
     return res.json();
   }
 
-  async check(formula: string, attributes: SystemAttribute[]): Promise<FormulaCheckOut> {
+  async check(formula: string, sheetId: string): Promise<FormulaCheckOut> {
     const res = await fetch(`${this.base}/formula-check`, {
       method: "POST",
       headers: this.headers(true),
-      body: JSON.stringify({ formula, attributes }),
+      body: JSON.stringify({ formula, sheet_id: sheetId }),
     });
     if (!res.ok) return readError(res, "Fórmula inválida");
+    return res.json();
+  }
+
+  async template(): Promise<CharacterSheetOut | null> {
+    const res = await fetch(`${this.base}/template`, { headers: this.headers() });
+    if (!res.ok) return readError(res, "Falha ao carregar modelo de ficha");
+    return res.json();
+  }
+
+  async uploadTemplate(file: File): Promise<CharacterSheetOut> {
+    const body = new FormData();
+    body.append("file", file);
+    const res = await fetch(`${this.base}/template`, { method: "POST", headers: this.headers(), body });
+    if (!res.ok) return readError(res, "Falha ao importar modelo de ficha");
+    return res.json();
+  }
+
+  async exampleTemplate(): Promise<CharacterSheetOut> {
+    const res = await fetch(`${this.base}/template/example`, { method: "POST", headers: this.headers() });
+    if (!res.ok) return readError(res, "Falha ao criar modelo de exemplo");
     return res.json();
   }
 
