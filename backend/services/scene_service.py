@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
@@ -25,6 +25,7 @@ from backend.schemas.scene import (
     GridUpdateIn,
     SceneOut,
     SceneSummary,
+    SceneParticipantOut,
     TokenAddIn,
     TokenCatalogOut,
     TokenCatalogUpdateIn,
@@ -418,12 +419,37 @@ def remove_token(token_id: int) -> int | None:
 # --- Gerenciamento de cenas (múltiplas cenas por campanha) ---
 
 
-def list_scenes(campaign_id: str) -> list[SceneSummary]:
+def list_scenes(
+    campaign_id: str, online_member_ids: set[str] | None = None
+) -> list[SceneSummary]:
     with _session() as db:
-        _ensure_active_scene(db, campaign_id)
+        active = _ensure_active_scene(db, campaign_id)
         scenes = db.scalars(
             select(Scene).where(Scene.campaign_id == campaign_id).order_by(Scene.id)
         ).all()
+        members = db.scalars(
+            select(CampaignMember).where(
+                CampaignMember.campaign_id == campaign_id,
+                CampaignMember.role != "gm",
+                CampaignMember.is_active.is_(True),
+            )
+        ).all()
+        by_scene: dict[int, list[SceneParticipantOut]] = {scene.id: [] for scene in scenes}
+        online = online_member_ids or set()
+        valid_scene_ids = set(by_scene)
+        for member in members:
+            scene_id = (
+                member.current_scene_id
+                if member.current_scene_id in valid_scene_ids
+                else active.id
+            )
+            by_scene[scene_id].append(
+                SceneParticipantOut(
+                    member_id=member.id,
+                    display_name=member.display_name,
+                    online=member.id in online,
+                )
+            )
         return [
             SceneSummary(
                 id=s.id,
@@ -431,6 +457,7 @@ def list_scenes(campaign_id: str) -> list[SceneSummary]:
                 is_active=s.is_active,
                 background_url=s.background_url,
                 token_count=len(s.tokens),
+                participants=by_scene[s.id],
             )
             for s in scenes
         ]
@@ -495,6 +522,48 @@ def set_active_scene(campaign_id: str, scene_id: int) -> SceneOut | None:
         return _to_scene_out(target)
 
 
+def set_default_scene(campaign_id: str, scene_id: int) -> SceneOut | None:
+    """Move o grupo para uma nova cena padrão e remove desvios individuais."""
+    with _session() as db:
+        target = db.get(Scene, scene_id)
+        if target is None or target.campaign_id != campaign_id:
+            return None
+        for scene in db.scalars(
+            select(Scene).where(Scene.campaign_id == campaign_id)
+        ).all():
+            scene.is_active = scene.id == target.id
+        db.execute(
+            update(CampaignMember)
+            .where(CampaignMember.campaign_id == campaign_id)
+            .values(current_scene_id=None)
+        )
+        db.flush()
+        return _to_scene_out(target)
+
+
+def assign_members_to_scene(
+    campaign_id: str, scene_id: int, member_ids: list[str]
+) -> list[str]:
+    """Atribui jogadores ativos da campanha a uma cena específica."""
+    with _session() as db:
+        scene = db.get(Scene, scene_id)
+        if scene is None or scene.campaign_id != campaign_id:
+            return []
+        wanted = set(member_ids)
+        members = db.scalars(
+            select(CampaignMember).where(
+                CampaignMember.campaign_id == campaign_id,
+                CampaignMember.id.in_(wanted),
+                CampaignMember.role != "gm",
+                CampaignMember.is_active.is_(True),
+            )
+        ).all()
+        for member in members:
+            member.current_scene_id = scene.id
+        db.flush()
+        return [member.id for member in members]
+
+
 def delete_scene(campaign_id: str, scene_id: int) -> SceneOut | None:
     """Exclui uma cena. Retorna a cena ativa resultante (nunca fica sem cena)."""
     with _session() as db:
@@ -502,6 +571,15 @@ def delete_scene(campaign_id: str, scene_id: int) -> SceneOut | None:
         if scene is None or scene.campaign_id != campaign_id:
             return None
         was_active = scene.is_active
+        db.execute(
+            update(Token).where(Token.scene_id == scene_id).values(scene_id=None)
+        )
+        db.execute(
+            update(CampaignMember)
+            .where(CampaignMember.current_scene_id == scene_id)
+            .values(current_scene_id=None)
+        )
+        scene.tokens.clear()
         db.delete(scene)
         db.flush()
         if was_active:

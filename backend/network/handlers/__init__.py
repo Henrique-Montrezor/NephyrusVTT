@@ -34,6 +34,8 @@ GM_ONLY_MESSAGE_TYPES = frozenset(
         "scene:create",
         "scene:rename",
         "scene:activate",
+        "scene:move_group",
+        "scene:move_members",
         "scene:delete",
         "grid:update",
         "token:visibility",

@@ -62,6 +62,12 @@ class SceneOut(BaseModel):
     tokens: list[TokenOut]
 
 
+class SceneParticipantOut(BaseModel):
+    member_id: str
+    display_name: str
+    online: bool = False
+
+
 class SceneSummary(BaseModel):
     """Resumo de cena para a lista/painel de cenas (sem tokens)."""
 
@@ -70,6 +76,7 @@ class SceneSummary(BaseModel):
     is_active: bool
     background_url: str | None
     token_count: int = 0
+    participants: list[SceneParticipantOut] = Field(default_factory=list)
 
 
 class SceneCreateIn(BaseModel):
@@ -151,6 +158,11 @@ class TokenPlaceIn(BaseModel):
     scene_id: int
     x: float
     y: float
+
+
+class SceneMoveMembersIn(BaseModel):
+    scene_id: int
+    member_ids: list[str] = Field(min_length=1, max_length=100)
 
 
 class TokenVisibilityIn(BaseModel):

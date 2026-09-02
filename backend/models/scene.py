@@ -38,7 +38,8 @@ class Scene(Base):
     tokens: Mapped[list["Token"]] = relationship(
         "Token",
         back_populates="scene",
-        cascade="all, delete-orphan",
+        cascade="save-update, merge",
+        passive_deletes=True,
         lazy="selectin",
     )
 
