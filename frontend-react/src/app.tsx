@@ -6,6 +6,7 @@ import { ContextMenuHost } from "@/ui/context-menu";
 import { theme } from "@/state/ui-store";
 import { authState, validateSavedIdentity } from "@/state/identity";
 import { SessionGate } from "@/components/SessionGate";
+import { NetworkNotice } from "@/components/NetworkNotice";
 
 export function App() {
   // Aplica o tema salvo ao <html> no primeiro render.
@@ -26,6 +27,7 @@ export function App() {
       <Workspace />
       <ModalHost />
       <ContextMenuHost />
+      <NetworkNotice />
     </>
   );
 }

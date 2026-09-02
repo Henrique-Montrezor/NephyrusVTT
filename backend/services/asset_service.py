@@ -142,6 +142,28 @@ def list_assets(campaign_id: str, kind: str | None = None) -> list[AssetOut]:
         return [AssetOut.model_validate(a) for a in db.scalars(stmt).all()]
 
 
+def get_campaign_asset(
+    campaign_id: str,
+    *,
+    asset_id: int | None = None,
+    url: str | None = None,
+    kinds: set[str] | None = None,
+) -> AssetOut | None:
+    """Busca um asset somente dentro da campanha e, opcionalmente, do tipo esperado."""
+    if asset_id is None and not url:
+        return None
+    with _session() as db:
+        stmt = select(Asset).where(Asset.campaign_id == campaign_id)
+        if asset_id is not None:
+            stmt = stmt.where(Asset.id == asset_id)
+        else:
+            stmt = stmt.where(Asset.url == url)
+        if kinds:
+            stmt = stmt.where(Asset.kind.in_(kinds))
+        asset = db.scalar(stmt)
+        return AssetOut.model_validate(asset) if asset is not None else None
+
+
 def update_asset(
     asset_id: int,
     original_name: str | None = None,

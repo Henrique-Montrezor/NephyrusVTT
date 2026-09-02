@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from backend.auth import campaign_identity, current_identity, gm_identity
 from backend.config import settings
 from backend.schemas.asset import AssetOut, AssetUpdateIn
-from backend.services import asset_service
+from backend.services import asset_service, audit_service
 from backend.services.asset_service import UploadError
 from backend.services.auth_service import AuthIdentity
 
@@ -38,7 +38,7 @@ async def upload_asset(
             detail=f"arquivo excede {settings.MAX_UPLOAD_MB} MB",
         )
     try:
-        return asset_service.save_upload(
+        asset = asset_service.save_upload(
             campaign_id=campaign_id,
             kind=kind,
             original_name=file.filename or "arquivo",
@@ -46,6 +46,8 @@ async def upload_asset(
             content=content,
             folder=folder,
         )
+        audit_service.record(campaign_id, identity.member_id, "asset:upload", target_type="asset", target_id=asset.id)
+        return asset
     except UploadError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -64,6 +66,7 @@ async def delete_asset(
     ok = asset_service.delete_asset(asset_id)
     if not ok:
         raise HTTPException(status_code=404, detail="asset não encontrado")
+    audit_service.record(identity.campaign_id, identity.member_id, "asset:delete", target_type="asset", target_id=asset_id)
     return {"deleted": asset_id}
 
 
@@ -85,4 +88,5 @@ async def update_asset(
     )
     if result is None:
         raise HTTPException(status_code=404, detail="asset não encontrado")
+    audit_service.record(identity.campaign_id, identity.member_id, "asset:update", target_type="asset", target_id=asset_id)
     return result

@@ -22,6 +22,35 @@ Handler = Callable[[Client, dict], Awaitable[None]]
 # type -> handler
 _REGISTRY: dict[str, Handler] = {}
 
+# A autorização é declarada junto ao protocolo, antes do despacho. Os handlers
+# ainda validam os objetos da campanha, mas uma mensagem administrativa nunca
+# chega à regra de negócio quando parte de um jogador.
+GM_ONLY_MESSAGE_TYPES = frozenset(
+    {
+        "draw:clear",
+        "template:clear",
+        "turn:set",
+        "scene:list",
+        "scene:create",
+        "scene:rename",
+        "scene:activate",
+        "scene:delete",
+        "grid:update",
+        "token:visibility",
+        "scene:background",
+        "scene:resize",
+        "audio:play",
+        "audio:stop",
+        "pdf:share",
+        "library:share",
+        "token:add",
+        "token:remove",
+        "fog:toggle",
+        "fog:reveal",
+        "fog:reset",
+    }
+)
+
 
 def register(message_type: str) -> Callable[[Handler], Handler]:
     """Decorator para registrar um handler para um tipo de mensagem."""
@@ -36,6 +65,11 @@ def register(message_type: str) -> Callable[[Handler], Handler]:
 def get_handler(message_type: str) -> Handler | None:
     """Retorna o handler registrado para o tipo, ou None."""
     return _REGISTRY.get(message_type)
+
+
+def can_dispatch(message_type: str, *, is_gm: bool) -> bool:
+    """Decide autorização do envelope antes de chamar seu handler."""
+    return is_gm or message_type not in GM_ONLY_MESSAGE_TYPES
 
 
 # --------------------------------------------------------------------------
@@ -55,7 +89,7 @@ async def handle_ping(client: Client, payload: dict) -> None:
 @register("chat")
 async def handle_chat(client: Client, payload: dict) -> None:
     """Retransmite uma mensagem de chat para todos os clientes da sala."""
-    text = str(payload.get("text", "")).strip()
+    text = str(payload.get("text", "")).strip()[:2000]
     if not text:
         return
     await manager.broadcast(

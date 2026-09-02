@@ -12,7 +12,7 @@ import { ToolsController } from "./tools-controller";
 import { MESSAGE_TYPES } from "@/net/message-types";
 import { ws, startWs } from "@/net/ws";
 import { identity } from "@/state/identity";
-import { activeTool, presence, publicSheetUpdates, pushLog, sharedItems, type PresenceMember, type SharedItem } from "@/state/ui-store";
+import { activeTool, presence, publicSheetUpdates, pushLog, sharedItems, showUiNotice, type PresenceMember, type SharedItem } from "@/state/ui-store";
 import { openTokenMenu } from "@/features/tokens/token-menu";
 
 export interface SessionApi {
@@ -76,6 +76,16 @@ function tryStart(): void {
 }
 
 function wireChat(): void {
+  ws.on(MESSAGE_TYPES.ERROR, (p: { reason?: string; message?: string }) => {
+    const messages: Record<string, string> = {
+      gm_only: "Esta ação é exclusiva do Mestre da campanha.",
+      asset_not_found: "O arquivo não está disponível nesta campanha.",
+      edit_denied: "Você só pode alterar itens criados por você.",
+      move_denied: "Você não tem permissão para mover este token.",
+      update_denied: "Você não tem permissão para editar este token.",
+    };
+    showUiNotice("Ação não realizada", p?.message ?? messages[p?.reason ?? ""] ?? "Não foi possível concluir esta ação.");
+  });
   ws.on(MESSAGE_TYPES.PRESENCE_LIST, (payload: { users?: PresenceMember[] }) => {
     presence.value = payload.users ?? [];
   });

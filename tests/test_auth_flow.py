@@ -121,6 +121,22 @@ class AuthFlowTest(unittest.TestCase):
             websocket.send_json({"type": "ping", "payload": {"ts": 42}})
             pong = websocket.receive_json()
             self.assertEqual(pong, {"type": "pong", "payload": {"ts": 42}})
+            websocket.send_json(
+                {"type": "scene:create", "payload": {"name": "Cena indevida"}}
+            )
+            denied_ws = websocket.receive_json()
+            self.assertEqual(denied_ws["type"], "error")
+            self.assertEqual(denied_ws["payload"]["reason"], "gm_only")
+
+        audit = self.client.get(
+            f"/api/campaigns/{campaign_id}/audit", headers=headers
+        )
+        self.assertEqual(audit.status_code, 200, audit.text)
+        self.assertIn("invite:rotate", {event["action"] for event in audit.json()})
+        forbidden_audit = self.client.get(
+            f"/api/campaigns/{campaign_id}/audit", headers=player_headers
+        )
+        self.assertEqual(forbidden_audit.status_code, 403)
 
     def test_fillable_pdf_sheet_is_private_persistent_and_exportable(self) -> None:
         created = self.client.post(
@@ -385,6 +401,36 @@ class AuthFlowTest(unittest.TestCase):
                 self.assertEqual(shared["type"], "library:share")
                 self.assertEqual(shared["payload"]["from"], "Mestre Serena")
                 self.assertEqual(shared["payload"]["item"]["name"], "registro.pdf")
+
+                other = self.client.post(
+                    "/api/auth/campaigns",
+                    json={"campaign_name": "Biblioteca alheia", "display_name": "Mestre Nox"},
+                ).json()
+                foreign_upload = self.client.post(
+                    f"/api/campaigns/{other['identity']['campaign_id']}/assets",
+                    headers={"Authorization": f"Bearer {other['access_token']}"},
+                    data={"kind": "pdf", "folder": ""},
+                    files={"file": ("segredo.pdf", b"%PDF-1.4 outro", "application/pdf")},
+                ).json()
+                gm_ws.send_json(
+                    {
+                        "type": "library:share",
+                        "payload": {
+                            "to": player["identity"]["member_id"],
+                            "item": {"id": str(foreign_upload["id"])},
+                        },
+                    }
+                )
+                isolated = gm_ws.receive_json()
+                self.assertEqual(isolated["type"], "error")
+                self.assertEqual(isolated["payload"]["reason"], "asset_not_found")
+
+        audit = self.client.get(
+            f"/api/campaigns/{campaign_id}/audit", headers=gm_headers
+        )
+        actions = {event["action"] for event in audit.json()}
+        self.assertIn("asset:upload", actions)
+        self.assertIn("library:share", actions)
 
     def test_custom_system_manifest_formulas_and_package_roundtrip(self) -> None:
         created = self.client.post(

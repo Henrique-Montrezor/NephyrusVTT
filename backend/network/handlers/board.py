@@ -87,7 +87,22 @@ async def handle_text_remove(client: Client, payload: dict) -> None:
     text_id = str(payload.get("id", ""))
     if not text_id:
         return
-    board_service.remove_text(client.campaign_id, text_id)
+    removed = board_service.remove_text(
+        client.campaign_id, text_id, user_id=client.user_id, is_gm=client.is_gm
+    )
+    if not removed:
+        await manager.send_personal(
+            client.websocket,
+            {
+                "type": "error",
+                "payload": {
+                    "reason": "edit_denied",
+                    "message": "Você só pode remover suas próprias anotações.",
+                    "type": "text:remove",
+                },
+            },
+        )
+        return
     await manager.broadcast(
         client.campaign_id, {"type": "text:remove", "payload": {"id": text_id}}
     )
@@ -129,6 +144,8 @@ async def handle_template_move(client: Client, payload: dict) -> None:
         float(payload.get("y", 0)),
         float(payload.get("x2", 0)),
         float(payload.get("y2", 0)),
+        user_id=client.user_id,
+        is_gm=client.is_gm,
     )
     if t is None:
         return
@@ -152,7 +169,22 @@ async def handle_template_remove(client: Client, payload: dict) -> None:
     tid = str(payload.get("id", ""))
     if not tid:
         return
-    board_service.remove_template(client.campaign_id, tid)
+    removed = board_service.remove_template(
+        client.campaign_id, tid, user_id=client.user_id, is_gm=client.is_gm
+    )
+    if not removed:
+        await manager.send_personal(
+            client.websocket,
+            {
+                "type": "error",
+                "payload": {
+                    "reason": "edit_denied",
+                    "message": "Você só pode remover seus próprios efeitos.",
+                    "type": "template:remove",
+                },
+            },
+        )
+        return
     await manager.broadcast(
         client.campaign_id, {"type": "template:remove", "payload": {"id": tid}}
     )

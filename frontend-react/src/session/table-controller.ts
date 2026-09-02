@@ -162,6 +162,14 @@ export class TableController {
     ws.send(MESSAGE_TYPES.GRID_UPDATE, { scene_id: sceneMeta.value.sceneId, ...partial });
   }
 
+  setSceneBackground(url: string): void {
+    if (!this.identity.isGm || sceneMeta.value.sceneId == null) return;
+    ws.send(MESSAGE_TYPES.SCENE_BACKGROUND, {
+      scene_id: sceneMeta.value.sceneId,
+      url,
+    });
+  }
+
   addToken(opts: {
     name?: string;
     image_url?: string | null;

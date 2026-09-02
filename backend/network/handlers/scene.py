@@ -15,7 +15,8 @@ from backend.schemas.scene import (
     SceneRequestIn,
     SceneResizeIn,
 )
-from backend.services import scene_service
+from backend.models.asset import KIND_AUDIO, KIND_MAP, KIND_PDF
+from backend.services import asset_service, scene_service
 
 logger = logging.getLogger("neferus.handlers.scene")
 
@@ -207,7 +208,9 @@ async def handle_scene_background(client: Client, payload: dict) -> None:
     if not scene_service.scene_belongs_to_campaign(scene_id, client.campaign_id):
         return
     url = str(payload.get("url", "")).strip()
-    if not url:
+    if asset_service.get_campaign_asset(
+        client.campaign_id, url=url, kinds={KIND_MAP}
+    ) is None:
         return
     scene = scene_service.set_background(scene_id, url)
     if scene is None:
@@ -250,7 +253,9 @@ async def handle_audio_play(client: Client, payload: dict) -> None:
     if not client.is_gm:
         return
     url = str(payload.get("url", "")).strip()
-    if not url:
+    if asset_service.get_campaign_asset(
+        client.campaign_id, url=url, kinds={KIND_AUDIO}
+    ) is None:
         return
     await manager.broadcast(
         client.campaign_id,
@@ -271,12 +276,15 @@ async def handle_pdf_share(client: Client, payload: dict) -> None:
     if not client.is_gm:
         return
     url = str(payload.get("url", "")).strip()
-    if not url:
+    asset = asset_service.get_campaign_asset(
+        client.campaign_id, url=url, kinds={KIND_PDF}
+    )
+    if asset is None:
         return
     await manager.broadcast(
         client.campaign_id,
         {
             "type": "pdf:share",
-            "payload": {"url": url, "name": str(payload.get("name", "Documento"))},
+            "payload": {"url": asset.url, "name": asset.original_name},
         },
     )

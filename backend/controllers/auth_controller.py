@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from backend.auth import campaign_identity, current_identity, gm_identity
 from backend.schemas.auth import AuthSessionOut, CampaignCreateIn, CampaignJoinIn, IdentityOut, InviteOut
-from backend.services import auth_service
+from backend.services import audit_service, auth_service
 from backend.services.auth_service import AuthError, AuthIdentity
 
 router = APIRouter(prefix="/api", tags=["auth"])
@@ -58,7 +58,9 @@ async def rotate_invite(
     identity: AuthIdentity = Depends(gm_identity),
 ) -> InviteOut:
     try:
-        return InviteOut(invite_code=auth_service.rotate_invite(identity))
+        invite = InviteOut(invite_code=auth_service.rotate_invite(identity))
+        audit_service.record(campaign_id, identity.member_id, "invite:rotate", target_type="campaign", target_id=campaign_id)
+        return invite
     except AuthError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

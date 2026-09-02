@@ -73,6 +73,19 @@ export interface SharedItem {
 
 export const sharedItems = signal<SharedItem[]>([]);
 
+export interface UiNotice {
+  id: number;
+  title: string;
+  message: string;
+}
+
+export const uiNotice = signal<UiNotice | null>(null);
+
+let noticeSeq = 0;
+export function showUiNotice(title: string, message: string): void {
+  uiNotice.value = { id: ++noticeSeq, title, message };
+}
+
 export interface PresenceMember {
   user_id: string;
   display_name: string;

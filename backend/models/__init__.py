@@ -13,5 +13,6 @@ from backend.models.campaign import Campaign, CampaignMember
 from backend.models.character_sheet import CharacterSheet
 from backend.models.library_folder import LibraryFolder
 from backend.models.game_system import GameSystem
+from backend.models.audit_event import AuditEvent
 
-__all__ = ["Scene", "Token", "Asset", "FogCell", "Page", "Campaign", "CampaignMember", "CharacterSheet", "LibraryFolder", "GameSystem"]
+__all__ = ["Scene", "Token", "Asset", "FogCell", "Page", "Campaign", "CampaignMember", "CharacterSheet", "LibraryFolder", "GameSystem", "AuditEvent"]

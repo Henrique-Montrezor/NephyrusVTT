@@ -18,6 +18,7 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
 from backend.network import handlers
 from backend.network.connection_manager import manager
 from backend.services.auth_service import AuthError, identity_from_token
+from backend.services import audit_service
 
 logger = logging.getLogger("neferus.ws")
 
@@ -90,7 +91,37 @@ async def websocket_endpoint(
                 )
                 continue
 
+            if not handlers.can_dispatch(message_type, is_gm=client.is_gm):
+                await manager.send_personal(
+                    websocket,
+                    {
+                        "type": "error",
+                        "payload": {
+                            "reason": "gm_only",
+                            "message": "Apenas o Mestre pode realizar esta ação.",
+                            "type": message_type,
+                        },
+                    },
+                )
+                continue
+
             await handler(client, payload)
+            if client.is_gm and message_type in handlers.GM_ONLY_MESSAGE_TYPES:
+                target_id = next(
+                    (
+                        payload.get(key)
+                        for key in ("scene_id", "token_id", "id")
+                        if payload.get(key) is not None
+                    ),
+                    "",
+                )
+                audit_service.record(
+                    client.campaign_id,
+                    client.user_id,
+                    message_type,
+                    target_type=message_type.split(":", 1)[0],
+                    target_id=target_id,
+                )
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)

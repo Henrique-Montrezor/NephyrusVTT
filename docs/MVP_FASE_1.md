@@ -83,9 +83,9 @@ Critério de aceite: um jogador participa de uma sessão de 60 minutos em um apa
 - [x] Modelar campanha, membro, convite e papel
 - [x] Criar autenticação local simples para self-hosted
 - [ ] Criar autenticação por e-mail ou provedor para cloud
-- [ ] Aplicar autorização em todos os handlers HTTP e WebSocket
-- [ ] Isolar assets, cenas e mensagens por campanha
-- [ ] Registrar ações administrativas básicas do mestre
+- [x] Aplicar autorização em todos os handlers HTTP e WebSocket
+- [x] Isolar assets, cenas e mensagens por campanha
+- [x] Registrar ações administrativas básicas do mestre
 
 Critério de aceite: um jogador não consegue ler ou alterar recursos de outra campanha nem executar mensagens reservadas ao mestre manipulando chamadas de rede.
 

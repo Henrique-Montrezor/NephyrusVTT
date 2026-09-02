@@ -192,7 +192,7 @@ export function LibraryPane() {
 
   const useAsset = (asset: AssetOut) => {
     if (asset.kind === "map") {
-      ws.send(MESSAGE_TYPES.SCENE_BACKGROUND, { background_url: asset.url });
+      session.value?.table.setSceneBackground(asset.url);
       setNotice("Mapa aplicado à cena atual.");
     } else if (asset.kind === "token") {
       session.value?.table.addToken({ name: asset.original_name, image_url: asset.url });

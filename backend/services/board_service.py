@@ -62,9 +62,15 @@ def add_text(campaign_id: str, text: dict) -> dict:
     return text
 
 
-def remove_text(campaign_id: str, text_id: str) -> None:
+def remove_text(
+    campaign_id: str, text_id: str, *, user_id: str | None, is_gm: bool
+) -> bool:
     board = _boards[campaign_id]
+    target = next((t for t in board["texts"] if t.get("id") == text_id), None)
+    if target is None or (not is_gm and target.get("owner") != user_id):
+        return False
     board["texts"] = [t for t in board["texts"] if t.get("id") != text_id]
+    return True
 
 
 # --- Templates de magia / área de efeito ---
@@ -78,19 +84,37 @@ def add_template(campaign_id: str, template: dict) -> dict:
     return template
 
 
-def remove_template(campaign_id: str, template_id: str) -> None:
+def remove_template(
+    campaign_id: str, template_id: str, *, user_id: str | None, is_gm: bool
+) -> bool:
     board = _boards[campaign_id]
+    target = next(
+        (t for t in board["templates"] if t.get("id") == template_id), None
+    )
+    if target is None or (not is_gm and target.get("owner") != user_id):
+        return False
     board["templates"] = [
         t for t in board["templates"] if t.get("id") != template_id
     ]
+    return True
 
 
 def move_template(
-    campaign_id: str, template_id: str, x: float, y: float, x2: float, y2: float
+    campaign_id: str,
+    template_id: str,
+    x: float,
+    y: float,
+    x2: float,
+    y2: float,
+    *,
+    user_id: str | None,
+    is_gm: bool,
 ) -> dict | None:
     board = _boards[campaign_id]
     for t in board["templates"]:
         if t.get("id") == template_id:
+            if not is_gm and t.get("owner") != user_id:
+                return None
             t["x"] = x
             t["y"] = y
             t["x2"] = x2

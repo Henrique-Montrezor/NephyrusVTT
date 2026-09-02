@@ -22,6 +22,7 @@ from backend.controllers.auth_controller import router as auth_router
 from backend.controllers.character_sheet_controller import router as character_sheet_router
 from backend.controllers.library_folder_controller import router as library_folder_router
 from backend.controllers.game_system_controller import router as game_system_router
+from backend.controllers.audit_controller import router as audit_router
 from backend.network.ws_router import router as ws_router
 
 logging.basicConfig(level=logging.INFO)
@@ -58,6 +59,7 @@ app.include_router(auth_router)
 app.include_router(character_sheet_router)
 app.include_router(library_folder_router)
 app.include_router(game_system_router)
+app.include_router(audit_router)
 
 
 @app.get("/health")
