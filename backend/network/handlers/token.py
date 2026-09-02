@@ -69,6 +69,7 @@ async def handle_token_update(client: Client, payload: dict) -> None:
             {"type": "token:add", "payload": td},
             gm_only=gm_only,
         )
+        await _send_catalog_update(client, token_id)
         return
     await _broadcast_token(client, "token:update", td)
     await _send_catalog_update(client, token_id)

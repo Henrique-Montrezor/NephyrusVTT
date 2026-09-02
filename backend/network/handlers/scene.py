@@ -89,6 +89,14 @@ async def handle_scene_create(client: Client, payload: dict) -> None:
         )
         return
     data = SceneCreateIn.model_validate(payload)
+    if data.background_url and asset_service.get_campaign_asset(
+        client.campaign_id, url=data.background_url, kinds={KIND_MAP}
+    ) is None:
+        await manager.send_personal(
+            client.websocket,
+            {"type": "error", "payload": {"reason": "asset_not_found"}},
+        )
+        return
     scene_service.create_scene(client.campaign_id, data.name, data.background_url)
     await _send_scene_list(client)
 

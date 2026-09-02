@@ -1,116 +1,51 @@
-import { tokenList } from "@/state/game-store";
+import { useState } from "preact/hooks";
+import { PencilSimple, Plus, Trash, TrayArrowDown } from "@phosphor-icons/react";
+import { tokenCatalog } from "@/state/token-catalog-store";
 import { identity } from "@/state/identity";
+import { sceneMeta } from "@/state/game-store";
 import { session } from "@/session";
-import { ICONS } from "@/lib/token-icons";
-import { Icon } from "@/ui/Icon";
-import { presence } from "@/state/ui-store";
+import { writeTokenDrag } from "./token-dnd";
+import { openTokenEditor } from "./TokenEditor";
+import type { TokenCatalogItem } from "@/net/types";
+
+type Filter = "scene" | "available" | "all";
 
 export function TokensPane() {
   const isGm = identity.value.isGm;
-  const tokens = isGm ? tokenList.value : tokenList.value.filter((token) => token.ownerId === identity.value.userId);
+  const [filter, setFilter] = useState<Filter>("scene");
+  const currentScene = sceneMeta.value.sceneId;
+  const catalog = tokenCatalog.value;
+  const filtered = catalog.filter((token) => filter === "all" || (filter === "scene" ? token.scene_id === currentScene : token.scene_id !== currentScene));
 
   return (
-    <section class="tab-pane active">
-      <div class="card">
-        <h2 class="card-title">Tokens na cena</h2>
-        <ul class="token-list">
-          {tokens.length === 0 ? (
-            <li class="token-empty">{isGm ? "Nenhum token na cena." : "Você ainda não possui um token nesta cena."}</li>
-          ) : (
-            tokens.map((t) => (
-              <li key={t.id} class={`token-item${t.isHidden ? " hidden" : ""}`} onClick={() => session.value?.table.centerOnToken(t.id)}>
-                <span class="swatch" style={t.imageUrl ? { backgroundImage: `url("${t.imageUrl}")` } : undefined} />
-                <div class="meta">
-                  <div class="name">{t.name}{t.isHidden ? " (oculto)" : ""}</div>
-                  <div class="sub">{isGm ? (t.ownerId ? `dono: ${presence.value.find((member) => member.user_id === t.ownerId)?.display_name ?? t.ownerId}` : "sem dono") : "Seu personagem"}</div>
-                </div>
-                {isGm && (
-                  <select
-                    class="token-owner-select"
-                    aria-label={`Responsável por ${t.name}`}
-                    value={t.ownerId ?? ""}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={(event) => {
-                      event.stopPropagation();
-                      session.value?.table.updateToken(t.id, { owner_id: (event.target as HTMLSelectElement).value || null });
-                    }}
-                  >
-                    <option value="">Mestre</option>
-                    {presence.value.filter((member) => !member.is_gm).map((player) => (
-                      <option key={player.user_id} value={player.user_id}>{player.display_name}</option>
-                    ))}
-                  </select>
-                )}
-                {isGm && (
-                  <div class="token-actions">
-                    <button
-                      class="icon-btn"
-                      title={t.isHidden ? "Revelar" : "Esconder"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        session.value?.table.toggleTokenVisibility(t.id);
-                      }}
-                    >
-                      <Icon inner={t.isHidden ? ICONS.reveal : ICONS.hide} size={16} />
-                    </button>
-                    <button
-                      class="icon-btn"
-                      title="Remover"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        session.value?.table.removeToken(t.id);
-                      }}
-                    >
-                      <Icon inner={ICONS.remove} size={16} />
-                    </button>
-                  </div>
-                )}
-              </li>
-            ))
-          )}
-        </ul>
+    <section class="tab-pane active token-shelf">
+      <header class="pane-lead">
+        <div><span class="eyebrow">Miniaturas persistentes</span><h2>Tokens</h2><p>Arraste um token para o mapa. Cada token existe em uma única cena.</p></div>
+        {isGm && <button type="button" class="btn-primary btn-mini" onClick={() => openTokenEditor()}><Plus size={16} weight="bold" /> Novo</button>}
+      </header>
+      <div class="segmented token-filters" role="tablist">
+        <button class={filter === "scene" ? "active" : ""} onClick={() => setFilter("scene")}>Nesta cena</button>
+        <button class={filter === "available" ? "active" : ""} onClick={() => setFilter("available")}>Disponíveis</button>
+        <button class={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Todos</button>
       </div>
-      {isGm && <AddTokenCard />}
+      <div class="token-catalog-grid">
+        {filtered.length === 0 ? <div class="token-catalog-empty"><TrayArrowDown size={28} /><strong>Nenhum token aqui</strong><span>{isGm ? "Crie um token com imagem ou procure em outro filtro." : "O Mestre ainda não vinculou tokens a você."}</span></div> : filtered.map((token) => <CatalogCard key={token.id} token={token} isGm={isGm} currentScene={currentScene} />)}
+      </div>
     </section>
   );
 }
 
-import { useState } from "preact/hooks";
-
-function AddTokenCard() {
-  const [name, setName] = useState("");
-  const [hidden, setHidden] = useState(false);
-  const [ownerId, setOwnerId] = useState("");
-  const players = presence.value.filter((member) => !member.is_gm);
-
-  const add = (e: Event) => {
-    e.preventDefault();
-    session.value?.table.addToken({ name: name || "Token", is_hidden: hidden, owner_id: ownerId || null });
-    setName("");
-    setHidden(false);
-  };
-
+function CatalogCard({ token, isGm, currentScene }: { token: TokenCatalogItem; isGm: boolean; currentScene: number | null }) {
+  const placedHere = token.scene_id === currentScene;
   return (
-    <div class="card">
-      <h2 class="card-title">
-        <Icon inner={ICONS.plus} />
-        Adicionar token
-      </h2>
-      <form class="add-token" onSubmit={add}>
-        <input type="text" placeholder="Nome do token" value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} />
-        <label class="field">
-          <span>Controlado por</span>
-          <select value={ownerId} onChange={(e) => setOwnerId((e.target as HTMLSelectElement).value)}>
-            <option value="">Somente mestre</option>
-            {players.map((player) => <option key={player.user_id} value={player.user_id}>{player.display_name}</option>)}
-          </select>
-        </label>
-        <label class="field-inline">
-          <input type="checkbox" checked={hidden} onChange={(e) => setHidden((e.target as HTMLInputElement).checked)} />
-          <span>Iniciar oculto</span>
-        </label>
-        <button type="submit" class="btn-ghost">Adicionar token vazio</button>
-      </form>
-    </div>
+    <article class={`token-catalog-card${placedHere ? " placed" : ""}`} draggable onDragStart={(event) => event.dataTransfer && writeTokenDrag(event.dataTransfer, token.id)}>
+      <div class="token-art" style={token.image_url ? { backgroundImage: `url("${token.image_url}")` } : undefined}>{!token.image_url && <span>{token.name.slice(0, 2).toUpperCase()}</span>}<i>{placedHere ? "na mesa" : token.scene_name ?? "disponível"}</i></div>
+      <div class="token-card-body"><strong>{token.name}</strong><span>{token.sheet_title ?? token.owner_name ?? "Somente Mestre"}</span></div>
+      <div class="token-card-actions">
+        {!placedHere && currentScene != null && <button type="button" title="Colocar no centro da cena" onClick={() => session.value?.table.placeToken(token.id, 160, 160)}><TrayArrowDown size={16} /></button>}
+        {placedHere && <button type="button" class="token-focus" onClick={() => session.value?.table.centerOnToken(token.id)}>Localizar</button>}
+        {isGm && <><button type="button" title="Editar" onClick={() => openTokenEditor(token)}><PencilSimple size={16} /></button><button type="button" class="danger" title="Excluir" onClick={() => confirm(`Excluir ${token.name}?`) && void session.value?.table.deleteCatalogToken(token.id)}><Trash size={16} /></button></>}
+      </div>
+    </article>
   );
 }

@@ -27,6 +27,8 @@ export const MESSAGE_TYPES = {
   SCENE_RENAME: "scene:rename",
   SCENE_ACTIVATE: "scene:activate",
   SCENE_DELETE: "scene:delete",
+  SCENE_MOVE_GROUP: "scene:move_group",
+  SCENE_MOVE_MEMBERS: "scene:move_members",
 
   // Tokens
   TOKEN_MOVE: "token:move",
@@ -34,6 +36,9 @@ export const MESSAGE_TYPES = {
   TOKEN_REMOVE: "token:remove",
   TOKEN_VISIBILITY: "token:visibility",
   TOKEN_UPDATE: "token:update",
+  TOKEN_PLACE: "token:place",
+  TOKEN_CATALOG_UPDATE: "token:catalog_update",
+  TOKEN_CATALOG_REMOVE: "token:catalog_remove",
 
   // Assets (áudio/pdf)
   AUDIO_PLAY: "audio:play",

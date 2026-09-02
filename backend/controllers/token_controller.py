@@ -9,8 +9,16 @@ from backend.schemas.scene import TokenCatalogOut, TokenCatalogUpdateIn, TokenCr
 from backend.services import audit_service, scene_service
 from backend.services.auth_service import AuthIdentity
 from backend.services.scene_service import TokenCatalogError
+from backend.network.connection_manager import manager
 
 router = APIRouter(prefix="/api", tags=["token"])
+
+
+async def _publish_catalog(campaign_id: str, token: TokenCatalogOut) -> None:
+    message = {"type": "token:catalog_update", "payload": token.model_dump()}
+    await manager.broadcast(campaign_id, message, gm_only=True)
+    if token.owner_id:
+        await manager.send_to_user(campaign_id, token.owner_id, message)
 
 
 @router.get("/campaigns/{campaign_id}/tokens", response_model=list[TokenCatalogOut])
@@ -44,6 +52,7 @@ async def create_token(
         target_type="token",
         target_id=token.id,
     )
+    await _publish_catalog(campaign_id, token)
     return token
 
 
@@ -55,6 +64,7 @@ async def update_token(
 ) -> TokenCatalogOut:
     if not identity.is_gm:
         raise HTTPException(status_code=403, detail="apenas o Mestre pode editar tokens")
+    previous = scene_service.get_campaign_token(identity.campaign_id, token_id)
     try:
         token = scene_service.update_campaign_token(
             identity.campaign_id, token_id, body
@@ -70,6 +80,20 @@ async def update_token(
         target_type="token",
         target_id=token_id,
     )
+    await _publish_catalog(identity.campaign_id, token)
+    if previous and previous.owner_id and previous.owner_id != token.owner_id:
+        await manager.send_to_user(
+            identity.campaign_id,
+            previous.owner_id,
+            {"type": "token:catalog_remove", "payload": {"token_id": token_id}},
+        )
+    if token.scene_id is not None:
+        await manager.broadcast_scene(
+            identity.campaign_id,
+            token.scene_id,
+            {"type": "token:update", "payload": token.model_dump()},
+            gm_only=scene_service.token_hidden_for_players(token.model_dump()),
+        )
     return token
 
 
@@ -80,7 +104,8 @@ async def delete_token(
 ) -> dict[str, int]:
     if not identity.is_gm:
         raise HTTPException(status_code=403, detail="apenas o Mestre pode excluir tokens")
-    if not scene_service.delete_campaign_token(identity.campaign_id, token_id):
+    token = scene_service.get_campaign_token(identity.campaign_id, token_id)
+    if token is None or not scene_service.delete_campaign_token(identity.campaign_id, token_id):
         raise HTTPException(status_code=404, detail="token não encontrado")
     audit_service.record(
         identity.campaign_id,
@@ -89,4 +114,14 @@ async def delete_token(
         target_type="token",
         target_id=token_id,
     )
+    message = {"type": "token:catalog_remove", "payload": {"token_id": token_id}}
+    await manager.broadcast(identity.campaign_id, message, gm_only=True)
+    if token.owner_id:
+        await manager.send_to_user(identity.campaign_id, token.owner_id, message)
+    if token.scene_id is not None:
+        await manager.broadcast_scene(
+            identity.campaign_id,
+            token.scene_id,
+            {"type": "token:remove", "payload": {"token_id": token_id}},
+        )
     return {"deleted": token_id}

@@ -8,6 +8,7 @@ export type TokenLayer = "map" | "object" | "gm";
 /** Payload de token vindo do servidor (TokenOut). */
 export interface TokenPayload {
   id: number;
+  scene_id?: number | null;
   name?: string;
   image_url?: string | null;
   x?: number;
@@ -21,6 +22,20 @@ export interface TokenPayload {
   is_locked?: boolean;
   light_radius?: number;
   conditions?: string[];
+}
+
+export interface TokenCatalogItem extends TokenPayload {
+  campaign_id: string;
+  name: string;
+  scene_id: number | null;
+  scene_name: string | null;
+  sheet_id: string | null;
+  sheet_title: string | null;
+  owner_id: string | null;
+  owner_name: string | null;
+  image_url: string | null;
+  width: number | null;
+  height: number | null;
 }
 
 /** Token normalizado no cliente. */
@@ -75,6 +90,15 @@ export interface SceneListItem {
   id: number;
   name: string;
   is_active: boolean;
+  background_url: string | null;
+  token_count: number;
+  participants: SceneParticipant[];
+}
+
+export interface SceneParticipant {
+  member_id: string;
+  display_name: string;
+  online: boolean;
 }
 
 /** Identidade autenticada, derivada do token assinado pelo servidor. */

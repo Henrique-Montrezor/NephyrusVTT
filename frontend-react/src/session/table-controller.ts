@@ -6,7 +6,8 @@
 import { MESSAGE_TYPES } from "@/net/message-types";
 import { ws } from "@/net/ws";
 import type { TableEngine } from "@/engine/table-engine";
-import type { Identity, ScenePayload, TokenLayer, TokenPayload } from "@/net/types";
+import type { Identity, SceneListItem, ScenePayload, TokenCatalogItem, TokenLayer, TokenPayload } from "@/net/types";
+import { TokenClient, type TokenCatalogDraft } from "@/net/rest";
 import {
   applyFogUpdate,
   fog,
@@ -22,13 +23,17 @@ import {
 } from "@/state/game-store";
 import { sceneList } from "@/state/ui-store";
 import type { Token } from "@/net/types";
+import { removeCatalogToken, replaceTokenCatalog, upsertCatalogToken } from "@/state/token-catalog-store";
 
 export class TableController {
+  private readonly tokenClient: TokenClient;
+
   constructor(
     private readonly engine: TableEngine,
     private readonly identity: Identity,
   ) {
     this.engine.setTokenResolver((id) => tokens.value.get(id));
+    this.tokenClient = new TokenClient(identity);
   }
 
   /** Registra os listeners de rede e solicita a cena. */
@@ -42,6 +47,9 @@ export class TableController {
     ws.on(MESSAGE_TYPES.GRID_UPDATE, (p) => this.onGridUpdate(p));
     ws.on(MESSAGE_TYPES.FOG_STATE, (p) => this.onFogState(p));
     ws.on(MESSAGE_TYPES.FOG_UPDATE, (p) => this.onFogUpdate(p));
+    ws.on(MESSAGE_TYPES.TOKEN_CATALOG_UPDATE, (p) => upsertCatalogToken(p as TokenCatalogItem));
+    ws.on(MESSAGE_TYPES.TOKEN_CATALOG_REMOVE, (p: { token_id: number }) => removeCatalogToken(p.token_id));
+    void this.reloadTokenCatalog().catch(() => replaceTokenCatalog([]));
   }
 
   requestScene(sceneId: number | null = null): void {
@@ -64,6 +72,14 @@ export class TableController {
     if (!this.identity.isGm) return;
     ws.send(MESSAGE_TYPES.SCENE_ACTIVATE, { scene_id: sceneId });
   }
+  moveGroup(sceneId: number): void {
+    if (this.identity.isGm) ws.send(MESSAGE_TYPES.SCENE_MOVE_GROUP, { scene_id: sceneId });
+  }
+  moveMembers(sceneId: number, memberIds: string[]): void {
+    if (this.identity.isGm && memberIds.length) {
+      ws.send(MESSAGE_TYPES.SCENE_MOVE_MEMBERS, { scene_id: sceneId, member_ids: memberIds });
+    }
+  }
   deleteScene(sceneId: number): void {
     if (!this.identity.isGm) return;
     ws.send(MESSAGE_TYPES.SCENE_DELETE, { scene_id: sceneId });
@@ -72,8 +88,45 @@ export class TableController {
     this.requestScene(sceneId);
   }
 
-  private onSceneList(payload: { scenes?: { id: number; name: string; is_active: boolean }[] }): void {
+  private onSceneList(payload: { scenes?: SceneListItem[] }): void {
     sceneList.value = payload?.scenes ?? [];
+  }
+
+  async reloadTokenCatalog(): Promise<void> {
+    replaceTokenCatalog(await this.tokenClient.list());
+  }
+
+  async createCatalogToken(data: TokenCatalogDraft): Promise<TokenCatalogItem> {
+    const token = await this.tokenClient.create(data);
+    upsertCatalogToken(token);
+    return token;
+  }
+
+  async updateCatalogToken(id: number, patch: Partial<TokenCatalogDraft>): Promise<TokenCatalogItem> {
+    const token = await this.tokenClient.update(id, patch);
+    upsertCatalogToken(token);
+    return token;
+  }
+
+  async deleteCatalogToken(id: number): Promise<void> {
+    await this.tokenClient.remove(id);
+    removeCatalogToken(id);
+    storeRemoveToken(id);
+    this.engine.removeToken(id);
+  }
+
+  placeToken(tokenId: number, x: number, y: number): void {
+    if (sceneMeta.value.sceneId == null) return;
+    ws.send(MESSAGE_TYPES.TOKEN_PLACE, {
+      token_id: tokenId,
+      scene_id: sceneMeta.value.sceneId,
+      x,
+      y,
+    });
+  }
+
+  enginePointFromClient(clientX: number, clientY: number): { x: number; y: number } {
+    return this.engine.clientToWorld(clientX, clientY);
   }
 
   canControlToken(token: Token | undefined | null): boolean {
