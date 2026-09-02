@@ -3,8 +3,9 @@ import { SheetClient, type CharacterSheetOut, type SheetFieldOut, type SheetOwne
 import { identity } from "@/state/identity";
 import { publicSheetUpdates } from "@/state/ui-store";
 import { SheetEditor } from "./SheetEditor";
+import { SheetTokenPanel } from "./SheetTokenPanel";
 
-type ViewMode = "fields" | "pdf" | "editor";
+type ViewMode = "info" | "sheet" | "token" | "editor";
 
 function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -71,7 +72,7 @@ export function SheetPane() {
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<Record<string, unknown>>({});
   const [pdfUrl, setPdfUrl] = useState("");
-  const [mode, setMode] = useState<ViewMode>("fields");
+  const [mode, setMode] = useState<ViewMode>("info");
   const [status, setStatus] = useState("Carregando fichas…");
   const [busy, setBusy] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -105,7 +106,7 @@ export function SheetPane() {
   useEffect(() => {
     let alive = true;
     let nextUrl = "";
-    if (!selected || mode !== "pdf") {
+    if (!selected || mode !== "sheet") {
       setPdfUrl("");
       return;
     }
@@ -198,13 +199,18 @@ export function SheetPane() {
               </select>
             </label>
             <button type="button" class="btn-ghost sheet-export" disabled={busy} onClick={exportSheet}>Exportar</button>
+            {session.isGm && (
+              <button type="button" class="btn-ghost sheet-export" onClick={() => setMode(mode === "editor" ? "sheet" : "editor")}>
+                {mode === "editor" ? "Voltar à ficha" : "Configurar campos"}
+              </button>
+            )}
           </div>
-          <div class={`sheet-mode${session.isGm ? " gm" : ""}`} role="tablist" aria-label="Visualização da ficha">
-            <button type="button" class={mode === "fields" ? "active" : ""} aria-selected={mode === "fields"} onClick={() => setMode("fields")}>Campos</button>
-            <button type="button" class={mode === "pdf" ? "active" : ""} aria-selected={mode === "pdf"} onClick={() => setMode("pdf")}>PDF · {selected.page_count} pág.</button>
-            {session.isGm && <button type="button" class={mode === "editor" ? "active" : ""} aria-selected={mode === "editor"} onClick={() => setMode("editor")}>Editor</button>}
+          <div class="sheet-mode gm" role="tablist" aria-label="Seções da ficha">
+            <button type="button" class={mode === "info" ? "active" : ""} aria-selected={mode === "info"} onClick={() => setMode("info")}>Info</button>
+            <button type="button" class={mode === "sheet" || mode === "editor" ? "active" : ""} aria-selected={mode === "sheet" || mode === "editor"} onClick={() => setMode("sheet")}>Ficha · {selected.page_count} pág.</button>
+            <button type="button" class={mode === "token" ? "active" : ""} aria-selected={mode === "token"} onClick={() => setMode("token")}>Token do personagem</button>
           </div>
-          {mode === "fields" ? (
+          {mode === "info" ? (
             <div class="sheet-fields">
               {selected.fields.length ? selected.fields.map((field) => (
                 <div class="sheet-field" key={field.key}>
@@ -219,6 +225,8 @@ export function SheetPane() {
               )) : <div class="sheet-fields-empty">Este PDF ainda não possui campos. O mestre pode criá-los no Editor.</div>}
               {!!selected.fields.length && <button type="button" class="btn-primary sheet-save" disabled={busy} onClick={() => void save()}>{busy ? "Salvando…" : "Salvar alterações"}</button>}
             </div>
+          ) : mode === "token" ? (
+            <SheetTokenPanel sheet={selected} />
           ) : mode === "editor" && session.isGm ? (
             <SheetEditor client={client} sheet={selected} onChange={replaceSheet} onStatus={setStatus} />
           ) : pdfUrl ? (

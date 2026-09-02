@@ -125,10 +125,6 @@ export class TableController {
     });
   }
 
-  enginePointFromClient(clientX: number, clientY: number): { x: number; y: number } {
-    return this.engine.clientToWorld(clientX, clientY);
-  }
-
   canControlToken(token: Token | undefined | null): boolean {
     if (!token) return false;
     return this.identity.isGm || token.ownerId === this.identity.userId;
@@ -220,34 +216,6 @@ export class TableController {
     ws.send(MESSAGE_TYPES.SCENE_BACKGROUND, {
       scene_id: sceneMeta.value.sceneId,
       url,
-    });
-  }
-
-  addToken(opts: {
-    name?: string;
-    image_url?: string | null;
-    owner_id?: string | null;
-    is_hidden?: boolean;
-    width?: number | null;
-    height?: number | null;
-    layer?: TokenLayer;
-  } = {}): void {
-    if (!this.identity.isGm) return;
-    const step = grid.value.size_px || 64;
-    ws.send(MESSAGE_TYPES.TOKEN_ADD, {
-      scene_id: sceneMeta.value.sceneId,
-      token: {
-        name: opts.name || "Token",
-        image_url: opts.image_url || null,
-        x: step * 2,
-        y: step * 2,
-        size_squares: 1,
-        width: opts.width || null,
-        height: opts.height || null,
-        layer: opts.layer || "object",
-        owner_id: opts.owner_id || null,
-        is_hidden: Boolean(opts.is_hidden),
-      },
     });
   }
 
