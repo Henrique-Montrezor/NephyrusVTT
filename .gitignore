@@ -4,6 +4,7 @@ dist/
 backend-dist/
 release/
 node_modules/
+.worktrees/
 
 # Logs temporários
 *.log
