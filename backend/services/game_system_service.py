@@ -26,6 +26,7 @@ class GameSystemError(ValueError):
 
 
 _DICE = re.compile(r"(?<![\w.])(\d{1,3})d(\d{1,4})(?![\w.])", re.IGNORECASE)
+_ATTRIBUTE_DICE = re.compile(r"\{([a-zA-Z][a-zA-Z0-9_]*)\}d(\d{1,4})", re.IGNORECASE)
 _BIN_OPS: dict[type[ast.operator], Callable[[float, float], float]] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
@@ -58,7 +59,22 @@ def validate_formula(formula: str, variables: dict[str, float]) -> FormulaCheckO
     source = re.sub(r"\s+", " ", formula.strip())
     if not source:
         raise GameSystemError("a fórmula não pode ficar vazia")
-    dice: list[tuple[int, int]] = []
+    dice: list[tuple[float, int]] = []
+    references: set[str] = set()
+
+    def replace_attribute_die(match: re.Match[str]) -> str:
+        key, raw_sides = match.group(1), match.group(2)
+        if key not in variables:
+            raise GameSystemError(f"campo numérico desconhecido: {key}")
+        count = variables[key]
+        sides = int(raw_sides)
+        if count < 0 or count > 100 or not float(count).is_integer():
+            raise GameSystemError("a quantidade de dados do atributo deve ser um inteiro entre 0 e 100")
+        if sides < 2 or sides > 1000:
+            raise GameSystemError("dados devem ter de 2 a 1000 faces")
+        references.add(key)
+        dice.append((count, sides))
+        return f"__die_{len(dice) - 1}"
 
     def replace_die(match: re.Match[str]) -> str:
         count, sides = int(match.group(1)), int(match.group(2))
@@ -67,13 +83,12 @@ def validate_formula(formula: str, variables: dict[str, float]) -> FormulaCheckO
         dice.append((count, sides))
         return f"__die_{len(dice) - 1}"
 
-    parsed_source = _DICE.sub(replace_die, source)
+    parsed_source = _ATTRIBUTE_DICE.sub(replace_attribute_die, source)
+    parsed_source = _DICE.sub(replace_die, parsed_source)
     try:
         tree = ast.parse(parsed_source, mode="eval")
     except SyntaxError as exc:
         raise GameSystemError("fórmula inválida") from exc
-    references: set[str] = set()
-
     def evaluate(node: ast.AST, depth: int = 0) -> float:
         if depth > 16:
             raise GameSystemError("fórmula complexa demais")
@@ -211,8 +226,8 @@ def configure_example(campaign_id: str, sheet_id: str) -> GameSystemOut:
         license="CC0-1.0",
         base_sheet_id=sheet_id,
         rolls=[
-            {"key": "ataque", "label": "Ataque", "formula": "1d20 + forca"},
-            {"key": "iniciativa", "label": "Iniciativa", "formula": "1d20 + agilidade"},
+            {"key": "forca", "label": "Força", "formula": "{forca}d20"},
+            {"key": "agilidade", "label": "Agilidade", "formula": "{agilidade}d20"},
         ],
     )
     return save_system(campaign_id, manifest)

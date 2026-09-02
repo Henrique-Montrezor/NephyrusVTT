@@ -456,6 +456,15 @@ class AuthFlowTest(unittest.TestCase):
         self.assertEqual(checked.json()["references"], ["forca"])
         self.assertEqual(checked.json()["preview"], 11.0)
 
+        attribute_dice = self.client.post(
+            f"/api/campaigns/{campaign_id}/system/formula-check",
+            headers=gm_headers,
+            json={"formula": "{forca}d20", "sheet_id": template_id},
+        )
+        self.assertEqual(attribute_dice.status_code, 200, attribute_dice.text)
+        self.assertEqual(attribute_dice.json()["references"], ["forca"])
+        self.assertEqual(attribute_dice.json()["preview"], 21.0)
+
         injection = self.client.post(
             f"/api/campaigns/{campaign_id}/system/formula-check",
             headers=gm_headers,

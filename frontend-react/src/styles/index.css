@@ -5028,3 +5028,325 @@ a:focus-visible {
     backdrop-filter: none;
   }
 }
+
+/* Modelo de ficha: atributos simples com quantidade dinâmica de dados. */
+.system-model-strip {
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 14px;
+  border-block: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.system-model-document {
+  width: 42px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--accent);
+  background: var(--surface);
+}
+
+.system-model-name {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.system-model-name strong,
+.system-model-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-model-name strong { color: var(--text); font-size: 0.78rem; }
+.system-model-name span { color: var(--muted); font-size: 0.66rem; }
+.system-model-strip > svg { color: var(--ok); }
+
+.system-attribute-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 14px 12px;
+}
+
+.system-attribute-intro h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.92rem;
+  letter-spacing: -0.02em;
+}
+
+.system-attribute-intro p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.69rem;
+  line-height: 1.45;
+}
+
+.system-roll-example {
+  min-width: 150px;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 7px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--surface-2);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.7rem;
+}
+
+.system-roll-example svg { color: var(--accent); }
+.system-roll-example strong { color: var(--accent); font-size: 0.82rem; }
+
+.system-add-attribute {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(90px, 0.65fr) auto;
+  align-items: end;
+  gap: 8px;
+  margin: 0 14px 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.system-add-attribute label,
+.system-attribute-key {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.system-add-attribute label > span,
+.system-attribute-key > span,
+.system-attribute-rule > span {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.system-add-attribute input {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  outline: 0;
+  color: var(--text);
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.75rem;
+}
+
+.system-add-attribute input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.system-attribute-key code {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--accent);
+  background: var(--surface-3);
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-add-attribute button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+.system-attributes {
+  min-height: 190px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 0 14px 14px;
+}
+
+.system-attribute {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 48px minmax(95px, 0.75fr) minmax(155px, 1fr) minmax(120px, 0.8fr) 34px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  transition: border-color 150ms ease, transform 150ms ease;
+}
+
+.system-attribute:hover { border-color: var(--border-strong); }
+.system-attribute:active { transform: translateY(1px); }
+
+.system-attribute-mark {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-radius: 8px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.system-attribute-name {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.system-attribute-name strong,
+.system-attribute-name code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-attribute-name strong { color: var(--text); font-size: 0.76rem; }
+.system-attribute-name code { color: var(--muted); font-size: 0.64rem; }
+
+.system-attribute-rule {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(72px, 1fr) auto minmax(76px, auto);
+  align-items: center;
+  gap: 7px;
+}
+
+.system-attribute-rule > svg { color: var(--muted); }
+
+.system-attribute-rule label {
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: auto minmax(44px, 1fr);
+  align-items: center;
+  padding-left: 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--accent);
+  background: var(--surface-2);
+}
+
+.system-attribute-rule select {
+  min-height: 38px;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.system-attribute-preview {
+  color: var(--muted);
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+.system-attribute-preview strong {
+  color: var(--accent);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.74rem;
+}
+
+.system-attribute-remove {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.system-attribute-remove:hover,
+.system-attribute-remove:focus-visible {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.system-attributes-empty {
+  min-height: 180px;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 6px;
+  padding: 22px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 9px;
+  color: var(--accent);
+  background: var(--surface-2);
+}
+
+.system-attributes-empty strong { margin-top: 4px; color: var(--text); font-size: 0.8rem; }
+.system-attributes-empty p { max-width: 42ch; margin: 0; color: var(--muted); font-size: 0.69rem; line-height: 1.45; }
+.system-pane .system-footer button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+
+@container (max-width: 620px) {
+  .system-model-strip { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .system-model-strip > svg { display: none; }
+  .system-attribute-intro { align-items: stretch; flex-direction: column; }
+  .system-roll-example { align-self: flex-start; }
+  .system-add-attribute { grid-template-columns: minmax(0, 1fr) minmax(90px, 0.7fr); }
+  .system-add-attribute button { grid-column: 1 / -1; }
+  .system-attribute {
+    grid-template-columns: 44px minmax(0, 1fr) 34px;
+    align-items: start;
+  }
+  .system-attribute-mark { width: 40px; height: 40px; }
+  .system-attribute-rule { grid-column: 2 / -1; }
+  .system-attribute-preview { grid-column: 2 / -1; }
+  .system-attribute-remove { grid-column: 3; grid-row: 1; }
+}
+
+@container (max-width: 390px) {
+  .system-model-strip { grid-template-columns: auto minmax(0, 1fr); }
+  .system-model-strip .system-import { grid-column: 1 / -1; width: 100%; }
+  .system-add-attribute { grid-template-columns: minmax(0, 1fr); }
+  .system-attribute-key,
+  .system-add-attribute button { grid-column: 1; }
+  .system-attribute-rule { grid-template-columns: minmax(0, 1fr) auto minmax(80px, auto); }
+}
+
+@media (pointer: coarse) {
+  .system-add-attribute input,
+  .system-add-attribute button,
+  .system-attribute-rule label,
+  .system-attribute-remove { min-height: 44px; }
+  .system-attribute-remove { min-width: 44px; }
+}

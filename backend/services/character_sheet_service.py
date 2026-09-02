@@ -24,7 +24,9 @@ from backend.models.campaign import CampaignMember
 from backend.models.character_sheet import CharacterSheet
 from backend.schemas.character_sheet import CharacterSheetOut, SheetFieldOut
 
-MAX_FIELDS = 300
+# PDFs complexos podem trazer centenas de controles AcroForm sem nome útil.
+# Mantemos espaço adicional para os atributos explícitos do sistema.
+MAX_FIELDS = 500
 MAX_VALUE_LENGTH = 20_000
 MAX_IMAGE_BYTES = 1_500_000
 _SAFE_KEY = re.compile(r"[^a-zA-Z0-9_.:-]+")
@@ -394,6 +396,9 @@ def _draw_custom_fields(writer: PdfWriter, sheet: CharacterSheetOut) -> None:
         overlay.setPageSize((width, height))
         for field in custom_by_page.get(page_number, []):
             left, top, box_width, box_height = field.rect
+            # Atributos podem existir apenas como controles, sem posição no PDF.
+            if box_width <= 0 or box_height <= 0:
+                continue
             x = width * left / 100
             y = height * (1 - (top + box_height) / 100)
             w = width * box_width / 100
