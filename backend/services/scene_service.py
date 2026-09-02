@@ -104,6 +104,7 @@ def _create_seed_scene(db: Session, campaign_id: str) -> Scene:
 
     scene.tokens.append(
         Token(
+            campaign_id=campaign_id,
             name="Herói",
             image_url="https://placehold.co/64x64/22c55e/ffffff/png?text=P",
             x=64 * 2,
@@ -116,6 +117,7 @@ def _create_seed_scene(db: Session, campaign_id: str) -> Scene:
     )
     scene.tokens.append(
         Token(
+            campaign_id=campaign_id,
             name="NPC Oculto",
             image_url="https://placehold.co/64x64/ef4444/ffffff/png?text=N",
             x=64 * 6,
@@ -189,7 +191,9 @@ def add_token(scene_id: int, data: TokenAddIn) -> TokenOut | None:
             owner = db.get(CampaignMember, data.owner_id)
             if owner is None or owner.campaign_id != scene.campaign_id or not owner.is_active:
                 return None
-        token = Token(scene_id=scene_id, **data.model_dump())
+        token = Token(
+            campaign_id=scene.campaign_id, scene_id=scene_id, **data.model_dump()
+        )
         if token.layer not in LAYERS:
             token.layer = LAYER_OBJECT
         tw, th = _token_px_size(scene, token)
