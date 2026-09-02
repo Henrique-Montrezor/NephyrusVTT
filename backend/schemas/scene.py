@@ -11,7 +11,7 @@ class TokenOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    scene_id: int
+    scene_id: int | None
     name: str
     image_url: str | None
     x: float
@@ -114,6 +114,32 @@ class TokenAddIn(BaseModel):
     layer: str = "object"
     owner_id: str | None = None
     is_hidden: bool = False
+
+
+class TokenCreateIn(BaseModel):
+    name: str = Field(default="Token", min_length=1, max_length=120)
+    image_url: str | None = None
+    sheet_id: str | None = None
+    owner_id: str | None = None
+    width: float | None = Field(default=None, gt=0, le=4000)
+    height: float | None = Field(default=None, gt=0, le=4000)
+
+
+class TokenCatalogUpdateIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    image_url: str | None = None
+    sheet_id: str | None = None
+    owner_id: str | None = None
+    width: float | None = Field(default=None, gt=0, le=4000)
+    height: float | None = Field(default=None, gt=0, le=4000)
+
+
+class TokenCatalogOut(TokenOut):
+    campaign_id: str
+    scene_name: str | None = None
+    sheet_id: str | None = None
+    sheet_title: str | None = None
+    owner_name: str | None = None
 
 
 class TokenRemoveIn(BaseModel):

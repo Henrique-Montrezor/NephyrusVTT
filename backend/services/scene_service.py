@@ -16,6 +16,8 @@ from sqlalchemy.orm import Session
 from backend.database import SessionLocal
 from backend.models.scene import Scene
 from backend.models.campaign import CampaignMember
+from backend.models.character_sheet import CharacterSheet
+from backend.models.asset import KIND_TOKEN
 from backend.models.token import LAYER_GM, LAYER_OBJECT, LAYERS, Token
 from backend.schemas.scene import (
     FogOut,
@@ -24,9 +26,13 @@ from backend.schemas.scene import (
     SceneOut,
     SceneSummary,
     TokenAddIn,
+    TokenCatalogOut,
+    TokenCatalogUpdateIn,
+    TokenCreateIn,
     TokenOut,
     TokenUpdateIn,
 )
+from backend.services import asset_service
 
 # URL de exemplo enquanto o upload (Fase 3) não existe.
 DEFAULT_BACKGROUND = "https://placehold.co/1600x1200/1e293b/64748b/png?text=Mapa+Exemplo"
@@ -46,7 +52,11 @@ def scene_belongs_to_campaign(scene_id: int, campaign_id: str) -> bool:
 def token_belongs_to_campaign(token_id: int, campaign_id: str) -> bool:
     with _session() as db:
         token = db.get(Token, token_id)
-        return token is not None and token.scene.campaign_id == campaign_id
+        return token is not None and token.campaign_id == campaign_id
+
+
+class TokenCatalogError(ValueError):
+    """Vínculo de token inválido dentro da campanha."""
 
 
 @contextmanager
@@ -169,7 +179,7 @@ def move_token(
     """
     with _session() as db:
         token = db.get(Token, token_id)
-        if token is None:
+        if token is None or token.scene is None:
             return None
         if not is_gm and token.owner_id != user_id:
             return None
@@ -201,6 +211,133 @@ def add_token(scene_id: int, data: TokenAddIn) -> TokenOut | None:
         db.add(token)
         db.flush()
         return TokenOut.model_validate(token)
+
+
+def _catalog_out(db: Session, token: Token) -> TokenCatalogOut:
+    owner = db.get(CampaignMember, token.owner_id) if token.owner_id else None
+    sheet = db.get(CharacterSheet, token.sheet_id) if token.sheet_id else None
+    scene = db.get(Scene, token.scene_id) if token.scene_id else None
+    payload = TokenOut.model_validate(token).model_dump()
+    return TokenCatalogOut(
+        **payload,
+        campaign_id=token.campaign_id,
+        scene_name=scene.name if scene else None,
+        sheet_id=token.sheet_id,
+        sheet_title=sheet.title if sheet else None,
+        owner_name=owner.display_name if owner else None,
+    )
+
+
+def list_campaign_tokens(
+    campaign_id: str, member_id: str, is_gm: bool
+) -> list[TokenCatalogOut]:
+    with _session() as db:
+        stmt = select(Token).where(Token.campaign_id == campaign_id)
+        if not is_gm:
+            stmt = stmt.where(Token.owner_id == member_id)
+        tokens = db.scalars(stmt.order_by(Token.name, Token.id)).all()
+        return [_catalog_out(db, token) for token in tokens]
+
+
+def _validate_token_image(campaign_id: str, image_url: str | None) -> None:
+    if image_url and asset_service.get_campaign_asset(
+        campaign_id, url=image_url, kinds={KIND_TOKEN}
+    ) is None:
+        raise TokenCatalogError("imagem de token inválida para esta campanha")
+
+
+def _resolve_token_links(
+    db: Session,
+    campaign_id: str,
+    *,
+    sheet_id: str | None,
+    owner_id: str | None,
+) -> tuple[str | None, str | None]:
+    resolved_owner = owner_id
+    if sheet_id is not None:
+        sheet = db.get(CharacterSheet, sheet_id)
+        if sheet is None or sheet.campaign_id != campaign_id:
+            raise TokenCatalogError("ficha inválida para esta campanha")
+        resolved_owner = sheet.owner_id
+    if resolved_owner is not None:
+        owner = db.get(CampaignMember, resolved_owner)
+        if (
+            owner is None
+            or owner.campaign_id != campaign_id
+            or not owner.is_active
+            or owner.role == "gm"
+        ):
+            raise TokenCatalogError("jogador inválido para esta campanha")
+    return sheet_id, resolved_owner
+
+
+def create_campaign_token(
+    campaign_id: str, data: TokenCreateIn
+) -> TokenCatalogOut:
+    _validate_token_image(campaign_id, data.image_url)
+    with _session() as db:
+        sheet_id, owner_id = _resolve_token_links(
+            db,
+            campaign_id,
+            sheet_id=data.sheet_id,
+            owner_id=data.owner_id,
+        )
+        token = Token(
+            campaign_id=campaign_id,
+            scene_id=None,
+            sheet_id=sheet_id,
+            owner_id=owner_id,
+            name=data.name.strip() or "Token",
+            image_url=data.image_url,
+            width=data.width,
+            height=data.height,
+            layer=LAYER_OBJECT,
+        )
+        db.add(token)
+        db.flush()
+        return _catalog_out(db, token)
+
+
+def update_campaign_token(
+    campaign_id: str, token_id: int, data: TokenCatalogUpdateIn
+) -> TokenCatalogOut | None:
+    if "image_url" in data.model_fields_set:
+        _validate_token_image(campaign_id, data.image_url)
+    with _session() as db:
+        token = db.get(Token, token_id)
+        if token is None or token.campaign_id != campaign_id:
+            return None
+        next_sheet = data.sheet_id if "sheet_id" in data.model_fields_set else token.sheet_id
+        next_owner = data.owner_id if "owner_id" in data.model_fields_set else token.owner_id
+        if "sheet_id" in data.model_fields_set and data.sheet_id is not None:
+            next_owner = None
+        next_sheet, next_owner = _resolve_token_links(
+            db,
+            campaign_id,
+            sheet_id=next_sheet,
+            owner_id=next_owner,
+        )
+        token.sheet_id = next_sheet
+        token.owner_id = next_owner
+        if data.name is not None:
+            token.name = data.name.strip() or token.name
+        if "image_url" in data.model_fields_set:
+            token.image_url = data.image_url
+        if data.width is not None:
+            token.width = data.width
+        if data.height is not None:
+            token.height = data.height
+        db.flush()
+        return _catalog_out(db, token)
+
+
+def delete_campaign_token(campaign_id: str, token_id: int) -> bool:
+    with _session() as db:
+        token = db.get(Token, token_id)
+        if token is None or token.campaign_id != campaign_id:
+            return False
+        db.delete(token)
+        return True
 
 
 def remove_token(token_id: int) -> int | None:
@@ -346,7 +483,7 @@ def update_token(
                 return None
             if data.owner_id is not None:
                 owner = db.get(CampaignMember, data.owner_id)
-                if owner is None or owner.campaign_id != token.scene.campaign_id or not owner.is_active:
+                if owner is None or owner.campaign_id != token.campaign_id or not owner.is_active:
                     return None
         if data.name is not None:
             token.name = data.name.strip() or token.name

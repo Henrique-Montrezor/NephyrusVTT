@@ -558,6 +558,100 @@ class AuthFlowTest(unittest.TestCase):
         self.assertEqual(example_system.json()["manifest"]["license"], "CC0-1.0")
         self.assertEqual(len(example_system.json()["manifest"]["rolls"]), 2)
 
+    def test_persistent_token_catalog_and_links(self) -> None:
+        created = self.client.post(
+            "/api/auth/campaigns",
+            json={"campaign_name": "Sentinelas do Vale", "display_name": "Mestre Lume"},
+        ).json()
+        campaign_id = created["identity"]["campaign_id"]
+        gm_headers = {"Authorization": f"Bearer {created['access_token']}"}
+        player = self.client.post(
+            "/api/auth/join",
+            json={"invite_code": created["invite_code"], "display_name": "Ravi"},
+        ).json()
+        player_headers = {"Authorization": f"Bearer {player['access_token']}"}
+
+        uploaded = self.client.post(
+            f"/api/campaigns/{campaign_id}/assets",
+            headers=gm_headers,
+            data={"kind": "token", "folder": "Tokens"},
+            files={"file": ("vigia.png", b"imagem-token", "image/png")},
+        )
+        self.assertEqual(uploaded.status_code, 200, uploaded.text)
+
+        source = BytesIO()
+        pdf = canvas.Canvas(source)
+        pdf.drawString(72, 780, "Ficha de Ravi")
+        pdf.showPage()
+        pdf.save()
+        sheet = self.client.post(
+            f"/api/campaigns/{campaign_id}/sheets",
+            headers=gm_headers,
+            data={
+                "owner_id": player["identity"]["member_id"],
+                "title": "Ficha de Ravi",
+            },
+            files={"file": ("ravi.pdf", source.getvalue(), "application/pdf")},
+        )
+        self.assertEqual(sheet.status_code, 201, sheet.text)
+
+        catalog_token = self.client.post(
+            f"/api/campaigns/{campaign_id}/tokens",
+            headers=gm_headers,
+            json={
+                "name": "Vigia",
+                "image_url": uploaded.json()["url"],
+                "sheet_id": sheet.json()["id"],
+            },
+        )
+        self.assertEqual(catalog_token.status_code, 201, catalog_token.text)
+        token = catalog_token.json()
+        self.assertIsNone(token["scene_id"])
+        self.assertEqual(token["owner_id"], player["identity"]["member_id"])
+        self.assertEqual(token["owner_name"], "Ravi")
+        self.assertEqual(token["sheet_title"], "Ficha de Ravi")
+        self.assertEqual(token["image_url"], uploaded.json()["url"])
+
+        player_list = self.client.get(
+            f"/api/campaigns/{campaign_id}/tokens", headers=player_headers
+        )
+        self.assertEqual(player_list.status_code, 200, player_list.text)
+        self.assertEqual([item["id"] for item in player_list.json()], [token["id"]])
+
+        forbidden = self.client.post(
+            f"/api/campaigns/{campaign_id}/tokens",
+            headers=player_headers,
+            json={"name": "Não autorizado"},
+        )
+        self.assertEqual(forbidden.status_code, 403, forbidden.text)
+
+        other = self.client.post(
+            "/api/auth/campaigns",
+            json={"campaign_name": "Outra Companhia", "display_name": "Mestre Nox"},
+        ).json()
+        other_headers = {"Authorization": f"Bearer {other['access_token']}"}
+        other_id = other["identity"]["campaign_id"]
+        foreign_asset = self.client.post(
+            f"/api/campaigns/{other_id}/assets",
+            headers=other_headers,
+            data={"kind": "token", "folder": ""},
+            files={"file": ("intruso.png", b"imagem-estranha", "image/png")},
+        ).json()
+
+        rejected = self.client.post(
+            f"/api/campaigns/{campaign_id}/tokens",
+            headers=gm_headers,
+            json={"name": "Intruso", "image_url": foreign_asset["url"]},
+        )
+        self.assertEqual(rejected.status_code, 422, rejected.text)
+
+        isolated = self.client.patch(
+            f"/api/tokens/{token['id']}",
+            headers=other_headers,
+            json={"name": "Roubo"},
+        )
+        self.assertEqual(isolated.status_code, 404, isolated.text)
+
 
 if __name__ == "__main__":
     unittest.main()
