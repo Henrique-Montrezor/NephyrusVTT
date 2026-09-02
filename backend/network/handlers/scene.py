@@ -14,6 +14,7 @@ from backend.schemas.scene import (
     SceneRenameIn,
     SceneRequestIn,
     SceneResizeIn,
+    SceneMoveMembersIn,
 )
 from backend.models.asset import KIND_AUDIO, KIND_MAP, KIND_PDF
 from backend.services import asset_service, scene_service
@@ -35,7 +36,8 @@ async def _send_scene_list(client: Client) -> None:
     """Envia a lista de cenas apenas ao GM (painel de cenas)."""
     if not client.is_gm:
         return
-    scenes = scene_service.list_scenes(client.campaign_id)
+    online_ids = {entry["user_id"] for entry in manager.roster(client.campaign_id)}
+    scenes = scene_service.list_scenes(client.campaign_id, online_ids)
     await manager.send_personal(
         client.websocket,
         {"type": "scene:list", "payload": {"scenes": [s.model_dump() for s in scenes]}},
@@ -58,7 +60,14 @@ async def handle_scene_request(client: Client, payload: dict) -> None:
     ):
         scene = scene_service.get_scene(req.scene_id)
     if scene is None:
-        scene = scene_service.get_or_create_default_scene(client.campaign_id)
+        if client.is_gm:
+            scene = scene_service.get_or_create_default_scene(client.campaign_id)
+        else:
+            scene = scene_service.get_scene(
+                scene_service.effective_scene_id(
+                    client.campaign_id, client.user_id or ""
+                )
+            )
     client.scene_id = scene.id
     await manager.send_personal(
         client.websocket,
@@ -80,6 +89,14 @@ async def handle_scene_create(client: Client, payload: dict) -> None:
         )
         return
     data = SceneCreateIn.model_validate(payload)
+    if data.background_url and asset_service.get_campaign_asset(
+        client.campaign_id, url=data.background_url, kinds={KIND_MAP}
+    ) is None:
+        await manager.send_personal(
+            client.websocket,
+            {"type": "error", "payload": {"reason": "asset_not_found"}},
+        )
+        return
     scene_service.create_scene(client.campaign_id, data.name, data.background_url)
     await _send_scene_list(client)
 
@@ -104,7 +121,7 @@ async def handle_scene_activate(client: Client, payload: dict) -> None:
         )
         return
     data = SceneActivateIn.model_validate(payload)
-    scene = scene_service.set_active_scene(client.campaign_id, data.scene_id)
+    scene = scene_service.set_default_scene(client.campaign_id, data.scene_id)
     if scene is None:
         return
     # Traz todos (GM + jogadores) para a cena ativa.
@@ -114,6 +131,55 @@ async def handle_scene_activate(client: Client, payload: dict) -> None:
             c.websocket, {"type": "scene:state", "payload": _scene_state_for(c, scene)}
         )
         await _send_scene_list(c)
+
+
+@register("scene:move_group")
+async def handle_scene_move_group(client: Client, payload: dict) -> None:
+    data = SceneActivateIn.model_validate(payload)
+    scene = scene_service.set_default_scene(client.campaign_id, data.scene_id)
+    if scene is None:
+        return
+    await manager.send_personal(
+        client.websocket,
+        {"type": "scene:group_moved", "payload": {"scene_id": scene.id}},
+    )
+    for connected in list(manager.rooms.get(client.campaign_id, [])):
+        connected.scene_id = scene.id
+        await manager.send_personal(
+            connected.websocket,
+            {"type": "scene:state", "payload": _scene_state_for(connected, scene)},
+        )
+    await _send_scene_list(client)
+
+
+@register("scene:move_members")
+async def handle_scene_move_members(client: Client, payload: dict) -> None:
+    data = SceneMoveMembersIn.model_validate(payload)
+    member_ids = scene_service.assign_members_to_scene(
+        client.campaign_id, data.scene_id, data.member_ids
+    )
+    if not member_ids:
+        return
+    scene = scene_service.get_scene(data.scene_id)
+    if scene is None:
+        return
+    await manager.send_personal(
+        client.websocket,
+        {
+            "type": "scene:assignment",
+            "payload": {"scene_id": scene.id, "member_ids": member_ids},
+        },
+    )
+    assigned = set(member_ids)
+    for connected in list(manager.rooms.get(client.campaign_id, [])):
+        if connected.user_id not in assigned:
+            continue
+        connected.scene_id = scene.id
+        await manager.send_personal(
+            connected.websocket,
+            {"type": "scene:state", "payload": _scene_state_for(connected, scene)},
+        )
+    await _send_scene_list(client)
 
 
 @register("scene:delete")

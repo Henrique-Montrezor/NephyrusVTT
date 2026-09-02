@@ -23,8 +23,14 @@ class Token(Base):
     __tablename__ = "tokens"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    scene_id: Mapped[int] = mapped_column(
-        ForeignKey("scenes.id", ondelete="CASCADE"), index=True
+    campaign_id: Mapped[str] = mapped_column(
+        ForeignKey("campaigns.id", ondelete="CASCADE"), index=True
+    )
+    scene_id: Mapped[int | None] = mapped_column(
+        ForeignKey("scenes.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    sheet_id: Mapped[str | None] = mapped_column(
+        ForeignKey("character_sheets.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     name: Mapped[str] = mapped_column(String, default="Token")
@@ -58,7 +64,7 @@ class Token(Base):
     # Condições ativas (chaves separadas por vírgula: "bleeding,dead").
     conditions: Mapped[str] = mapped_column(String, default="")
 
-    scene: Mapped["Scene"] = relationship("Scene", back_populates="tokens")
+    scene: Mapped["Scene | None"] = relationship("Scene", back_populates="tokens")
 
 
 from backend.models.scene import Scene  # noqa: E402

@@ -558,6 +558,287 @@ class AuthFlowTest(unittest.TestCase):
         self.assertEqual(example_system.json()["manifest"]["license"], "CC0-1.0")
         self.assertEqual(len(example_system.json()["manifest"]["rolls"]), 2)
 
+    def test_persistent_token_catalog_and_links(self) -> None:
+        created = self.client.post(
+            "/api/auth/campaigns",
+            json={"campaign_name": "Sentinelas do Vale", "display_name": "Mestre Lume"},
+        ).json()
+        campaign_id = created["identity"]["campaign_id"]
+        gm_headers = {"Authorization": f"Bearer {created['access_token']}"}
+        player = self.client.post(
+            "/api/auth/join",
+            json={"invite_code": created["invite_code"], "display_name": "Ravi"},
+        ).json()
+        player_headers = {"Authorization": f"Bearer {player['access_token']}"}
+
+        uploaded = self.client.post(
+            f"/api/campaigns/{campaign_id}/assets",
+            headers=gm_headers,
+            data={"kind": "token", "folder": "Tokens"},
+            files={"file": ("vigia.png", b"imagem-token", "image/png")},
+        )
+        self.assertEqual(uploaded.status_code, 200, uploaded.text)
+
+        source = BytesIO()
+        pdf = canvas.Canvas(source)
+        pdf.drawString(72, 780, "Ficha de Ravi")
+        pdf.showPage()
+        pdf.save()
+        sheet = self.client.post(
+            f"/api/campaigns/{campaign_id}/sheets",
+            headers=gm_headers,
+            data={
+                "owner_id": player["identity"]["member_id"],
+                "title": "Ficha de Ravi",
+            },
+            files={"file": ("ravi.pdf", source.getvalue(), "application/pdf")},
+        )
+        self.assertEqual(sheet.status_code, 201, sheet.text)
+
+        catalog_token = self.client.post(
+            f"/api/campaigns/{campaign_id}/tokens",
+            headers=gm_headers,
+            json={
+                "name": "Vigia",
+                "image_url": uploaded.json()["url"],
+                "sheet_id": sheet.json()["id"],
+            },
+        )
+        self.assertEqual(catalog_token.status_code, 201, catalog_token.text)
+        token = catalog_token.json()
+        self.assertIsNone(token["scene_id"])
+        self.assertEqual(token["owner_id"], player["identity"]["member_id"])
+        self.assertEqual(token["owner_name"], "Ravi")
+        self.assertEqual(token["sheet_title"], "Ficha de Ravi")
+        self.assertEqual(token["image_url"], uploaded.json()["url"])
+
+        player_list = self.client.get(
+            f"/api/campaigns/{campaign_id}/tokens", headers=player_headers
+        )
+        self.assertEqual(player_list.status_code, 200, player_list.text)
+        self.assertEqual([item["id"] for item in player_list.json()], [token["id"]])
+
+        forbidden = self.client.post(
+            f"/api/campaigns/{campaign_id}/tokens",
+            headers=player_headers,
+            json={"name": "Não autorizado"},
+        )
+        self.assertEqual(forbidden.status_code, 403, forbidden.text)
+
+        other = self.client.post(
+            "/api/auth/campaigns",
+            json={"campaign_name": "Outra Companhia", "display_name": "Mestre Nox"},
+        ).json()
+        other_headers = {"Authorization": f"Bearer {other['access_token']}"}
+        other_id = other["identity"]["campaign_id"]
+        foreign_asset = self.client.post(
+            f"/api/campaigns/{other_id}/assets",
+            headers=other_headers,
+            data={"kind": "token", "folder": ""},
+            files={"file": ("intruso.png", b"imagem-estranha", "image/png")},
+        ).json()
+
+        rejected = self.client.post(
+            f"/api/campaigns/{campaign_id}/tokens",
+            headers=gm_headers,
+            json={"name": "Intruso", "image_url": foreign_asset["url"]},
+        )
+        self.assertEqual(rejected.status_code, 422, rejected.text)
+
+        isolated = self.client.patch(
+            f"/api/tokens/{token['id']}",
+            headers=other_headers,
+            json={"name": "Roubo"},
+        )
+        self.assertEqual(isolated.status_code, 404, isolated.text)
+
+    def test_player_places_and_gm_transfers_owned_token(self) -> None:
+        created = self.client.post(
+            "/api/auth/campaigns",
+            json={"campaign_name": "Rotas do Norte", "display_name": "Mestre Ivo"},
+        ).json()
+        campaign_id = created["identity"]["campaign_id"]
+        gm_headers = {"Authorization": f"Bearer {created['access_token']}"}
+        player = self.client.post(
+            "/api/auth/join",
+            json={"invite_code": created["invite_code"], "display_name": "Nara"},
+        ).json()
+        active = self.client.get(
+            f"/api/campaigns/{campaign_id}/scene", headers=gm_headers
+        ).json()
+        reserve = scene_service.create_scene(campaign_id, "Reserva", None)
+        catalog_token = self.client.post(
+            f"/api/campaigns/{campaign_id}/tokens",
+            headers=gm_headers,
+            json={
+                "name": "Nara",
+                "owner_id": player["identity"]["member_id"],
+                "width": 72,
+                "height": 72,
+            },
+        ).json()
+
+        with self.client.websocket_connect(f"/ws?token={created['access_token']}") as gm_ws:
+            self.assertEqual(gm_ws.receive_json()["type"], "presence:list")
+            with self.client.websocket_connect(f"/ws?token={player['access_token']}") as player_ws:
+                self.assertEqual(player_ws.receive_json()["type"], "presence:list")
+                self.assertEqual(gm_ws.receive_json()["type"], "presence:list")
+
+                gm_ws.send_json({"type": "scene:request", "payload": {}})
+                self.assertEqual(gm_ws.receive_json()["type"], "scene:state")
+                self.assertEqual(gm_ws.receive_json()["type"], "scene:list")
+                player_ws.send_json({"type": "scene:request", "payload": {}})
+                self.assertEqual(player_ws.receive_json()["type"], "scene:state")
+
+                player_ws.send_json(
+                    {
+                        "type": "token:place",
+                        "payload": {
+                            "token_id": catalog_token["id"],
+                            "scene_id": active["id"],
+                            "x": 128,
+                            "y": 192,
+                        },
+                    }
+                )
+                player_added = player_ws.receive_json()
+                self.assertEqual(player_added["type"], "token:add")
+                gm_added = gm_ws.receive_json()
+                self.assertEqual(gm_added["type"], "token:add")
+                self.assertEqual(player_added["payload"]["scene_id"], active["id"])
+                self.assertEqual(player_ws.receive_json()["type"], "token:catalog_update")
+                self.assertEqual(gm_ws.receive_json()["type"], "token:catalog_update")
+
+                gm_ws.send_json(
+                    {
+                        "type": "scene:request",
+                        "payload": {"scene_id": reserve.id},
+                    }
+                )
+                self.assertEqual(gm_ws.receive_json()["type"], "scene:state")
+                self.assertEqual(gm_ws.receive_json()["type"], "scene:list")
+
+                gm_ws.send_json(
+                    {
+                        "type": "token:place",
+                        "payload": {
+                            "token_id": catalog_token["id"],
+                            "scene_id": reserve.id,
+                            "x": 64,
+                            "y": 64,
+                        },
+                    }
+                )
+                player_removed = player_ws.receive_json()
+                gm_transferred = gm_ws.receive_json()
+                self.assertEqual(player_removed["type"], "token:remove")
+                self.assertEqual(
+                    player_removed["payload"]["token_id"], catalog_token["id"]
+                )
+                self.assertEqual(gm_transferred["type"], "token:add")
+                self.assertEqual(gm_transferred["payload"]["scene_id"], reserve.id)
+
+        persisted = scene_service.get_campaign_token(campaign_id, catalog_token["id"])
+        self.assertIsNotNone(persisted)
+        assert persisted is not None
+        self.assertEqual(persisted.scene_id, reserve.id)
+        self.assertEqual((persisted.x, persisted.y), (64.0, 64.0))
+
+    def test_gm_moves_group_or_selected_members_between_scenes(self) -> None:
+        created = self.client.post(
+            "/api/auth/campaigns",
+            json={"campaign_name": "Portais de Cinza", "display_name": "Mestre Ada"},
+        ).json()
+        campaign_id = created["identity"]["campaign_id"]
+        gm_headers = {"Authorization": f"Bearer {created['access_token']}"}
+        player_1 = self.client.post(
+            "/api/auth/join",
+            json={"invite_code": created["invite_code"], "display_name": "Ravi"},
+        ).json()
+        player_2 = self.client.post(
+            "/api/auth/join",
+            json={"invite_code": created["invite_code"], "display_name": "Lina"},
+        ).json()
+        active = self.client.get(
+            f"/api/campaigns/{campaign_id}/scene", headers=gm_headers
+        ).json()
+        reserve = scene_service.create_scene(campaign_id, "Ruínas", None)
+        ravi_id = player_1["identity"]["member_id"]
+        lina_id = player_2["identity"]["member_id"]
+
+        with self.client.websocket_connect(f"/ws?token={created['access_token']}") as gm_ws:
+            self.assertEqual(gm_ws.receive_json()["type"], "presence:list")
+            with self.client.websocket_connect(f"/ws?token={player_1['access_token']}") as ravi_ws:
+                self.assertEqual(ravi_ws.receive_json()["type"], "presence:list")
+                self.assertEqual(gm_ws.receive_json()["type"], "presence:list")
+                with self.client.websocket_connect(f"/ws?token={player_2['access_token']}") as lina_ws:
+                    self.assertEqual(lina_ws.receive_json()["type"], "presence:list")
+                    self.assertEqual(gm_ws.receive_json()["type"], "presence:list")
+                    self.assertEqual(ravi_ws.receive_json()["type"], "presence:list")
+
+                    gm_ws.send_json(
+                        {"type": "scene:request", "payload": {"scene_id": reserve.id}}
+                    )
+                    preview = gm_ws.receive_json()
+                    self.assertEqual(preview["type"], "scene:state")
+                    self.assertEqual(preview["payload"]["id"], reserve.id)
+                    self.assertEqual(gm_ws.receive_json()["type"], "scene:list")
+                    self.assertEqual(
+                        scene_service.effective_scene_id(campaign_id, ravi_id),
+                        active["id"],
+                    )
+
+                    ravi_ws.send_json({"type": "scene:request", "payload": {}})
+                    lina_ws.send_json({"type": "scene:request", "payload": {}})
+                    self.assertEqual(ravi_ws.receive_json()["type"], "scene:state")
+                    self.assertEqual(lina_ws.receive_json()["type"], "scene:state")
+
+                    gm_ws.send_json(
+                        {
+                            "type": "scene:move_members",
+                            "payload": {
+                                "scene_id": reserve.id,
+                                "member_ids": [ravi_id],
+                            },
+                        }
+                    )
+                    assignment = gm_ws.receive_json()
+                    self.assertEqual(assignment["type"], "scene:assignment")
+                    self.assertEqual(assignment["payload"]["member_ids"], [ravi_id])
+                    self.assertEqual(ravi_ws.receive_json()["payload"]["id"], reserve.id)
+                    self.assertEqual(gm_ws.receive_json()["type"], "scene:list")
+                    self.assertEqual(
+                        scene_service.effective_scene_id(campaign_id, lina_id),
+                        active["id"],
+                    )
+
+                    gm_ws.send_json(
+                        {"type": "scene:move_group", "payload": {"scene_id": reserve.id}}
+                    )
+                    moved = gm_ws.receive_json()
+                    self.assertEqual(moved["type"], "scene:group_moved")
+                    self.assertEqual(moved["payload"]["scene_id"], reserve.id)
+                    self.assertEqual(gm_ws.receive_json()["payload"]["id"], reserve.id)
+                    self.assertEqual(ravi_ws.receive_json()["payload"]["id"], reserve.id)
+                    self.assertEqual(lina_ws.receive_json()["payload"]["id"], reserve.id)
+                    self.assertEqual(gm_ws.receive_json()["type"], "scene:list")
+
+                    self.assertEqual(
+                        scene_service.effective_scene_id(campaign_id, ravi_id),
+                        reserve.id,
+                    )
+                    self.assertEqual(
+                        scene_service.effective_scene_id(campaign_id, lina_id),
+                        reserve.id,
+                    )
+
+                    ravi_ws.send_json(
+                        {"type": "scene:move_group", "payload": {"scene_id": active["id"]}}
+                    )
+                    denied = ravi_ws.receive_json()
+                    self.assertEqual(denied["type"], "error")
+                    self.assertEqual(denied["payload"]["reason"], "gm_only")
+
 
 if __name__ == "__main__":
     unittest.main()

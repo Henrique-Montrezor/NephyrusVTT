@@ -2,7 +2,7 @@
  * Clientes REST (/api). Portados de asset_controller.js e page_controller.js.
  * Todas as chamadas enviam o token de acesso da sessão atual.
  */
-import type { Identity } from "./types";
+import type { Identity, TokenCatalogItem } from "./types";
 
 export type AssetKind = "map" | "token" | "pdf" | "audio" | "doc";
 
@@ -164,6 +164,61 @@ export class AssetClient {
     });
     if (!res.ok) return readError(res, "Falha ao atualizar");
     return res.json();
+  }
+}
+
+export interface TokenCatalogDraft {
+  name: string;
+  image_url?: string | null;
+  sheet_id?: string | null;
+  owner_id?: string | null;
+  width?: number | null;
+  height?: number | null;
+}
+
+export class TokenClient {
+  private readonly base: string;
+
+  constructor(private readonly identity: Identity) {
+    this.base = `/api/campaigns/${encodeURIComponent(identity.campaignId)}/tokens`;
+  }
+
+  private headers(json = false): HeadersInit {
+    return {
+      Authorization: `Bearer ${this.identity.accessToken}`,
+      ...(json ? { "Content-Type": "application/json" } : {}),
+    };
+  }
+
+  async list(): Promise<TokenCatalogItem[]> {
+    const res = await fetch(this.base, { headers: this.headers() });
+    if (!res.ok) return readError(res, "Falha ao listar tokens");
+    return res.json();
+  }
+
+  async create(data: TokenCatalogDraft): Promise<TokenCatalogItem> {
+    const res = await fetch(this.base, {
+      method: "POST",
+      headers: this.headers(true),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) return readError(res, "Falha ao criar token");
+    return res.json();
+  }
+
+  async update(id: number, patch: Partial<TokenCatalogDraft>): Promise<TokenCatalogItem> {
+    const res = await fetch(`/api/tokens/${id}`, {
+      method: "PATCH",
+      headers: this.headers(true),
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) return readError(res, "Falha ao salvar token");
+    return res.json();
+  }
+
+  async remove(id: number): Promise<void> {
+    const res = await fetch(`/api/tokens/${id}`, { method: "DELETE", headers: this.headers() });
+    if (!res.ok) await readError(res, "Falha ao excluir token");
   }
 }
 

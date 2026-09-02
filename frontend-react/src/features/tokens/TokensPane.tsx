@@ -1,116 +1,65 @@
+import { Crosshair, MapPin, SignOut } from "@phosphor-icons/react";
 import { tokenList } from "@/state/game-store";
+import { tokenCatalog } from "@/state/token-catalog-store";
 import { identity } from "@/state/identity";
 import { session } from "@/session";
-import { ICONS } from "@/lib/token-icons";
-import { Icon } from "@/ui/Icon";
-import { presence } from "@/state/ui-store";
 
 export function TokensPane() {
   const isGm = identity.value.isGm;
-  const tokens = isGm ? tokenList.value : tokenList.value.filter((token) => token.ownerId === identity.value.userId);
+  const current = tokenList.value.filter((token) => isGm || token.ownerId === identity.value.userId);
+  const catalog = new Map(tokenCatalog.value.map((token) => [token.id, token]));
 
   return (
-    <section class="tab-pane active">
-      <div class="card">
-        <h2 class="card-title">Tokens na cena</h2>
-        <ul class="token-list">
-          {tokens.length === 0 ? (
-            <li class="token-empty">{isGm ? "Nenhum token na cena." : "Você ainda não possui um token nesta cena."}</li>
-          ) : (
-            tokens.map((t) => (
-              <li key={t.id} class={`token-item${t.isHidden ? " hidden" : ""}`} onClick={() => session.value?.table.centerOnToken(t.id)}>
-                <span class="swatch" style={t.imageUrl ? { backgroundImage: `url("${t.imageUrl}")` } : undefined} />
-                <div class="meta">
-                  <div class="name">{t.name}{t.isHidden ? " (oculto)" : ""}</div>
-                  <div class="sub">{isGm ? (t.ownerId ? `dono: ${presence.value.find((member) => member.user_id === t.ownerId)?.display_name ?? t.ownerId}` : "sem dono") : "Seu personagem"}</div>
+    <section class="tab-pane active scene-token-pane">
+      <header class="scene-token-header">
+        <div>
+          <span>Na cena aberta</span>
+          <h2>Tokens no mapa</h2>
+        </div>
+        <strong>{current.length}</strong>
+      </header>
+
+      {current.length ? (
+        <div class="scene-token-list">
+          {current.map((token) => {
+            const details = catalog.get(token.id);
+            return (
+              <article key={token.id} class="scene-token-row">
+                <button
+                  type="button"
+                  class="scene-token-thumb"
+                  style={token.imageUrl ? { backgroundImage: `url("${token.imageUrl}")` } : undefined}
+                  onClick={() => session.value?.table.centerOnToken(token.id)}
+                  aria-label={`Localizar ${token.name}`}
+                >
+                  {!token.imageUrl && token.name.slice(0, 2).toUpperCase()}
+                  <MapPin size={14} weight="fill" />
+                </button>
+                <div class="scene-token-meta">
+                  <strong>{token.name}</strong>
+                  <span>{details?.sheet_title ?? details?.owner_name ?? (isGm ? "Sem ficha vinculada" : "Seu token")}</span>
                 </div>
+                <button type="button" class="scene-token-action" onClick={() => session.value?.table.centerOnToken(token.id)}>
+                  <Crosshair size={17} />
+                  <span>Localizar</span>
+                </button>
                 {isGm && (
-                  <select
-                    class="token-owner-select"
-                    aria-label={`Responsável por ${t.name}`}
-                    value={t.ownerId ?? ""}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={(event) => {
-                      event.stopPropagation();
-                      session.value?.table.updateToken(t.id, { owner_id: (event.target as HTMLSelectElement).value || null });
-                    }}
-                  >
-                    <option value="">Mestre</option>
-                    {presence.value.filter((member) => !member.is_gm).map((player) => (
-                      <option key={player.user_id} value={player.user_id}>{player.display_name}</option>
-                    ))}
-                  </select>
+                  <button type="button" class="scene-token-action is-danger" onClick={() => session.value?.table.removeToken(token.id)}>
+                    <SignOut size={17} />
+                    <span>Retirar</span>
+                  </button>
                 )}
-                {isGm && (
-                  <div class="token-actions">
-                    <button
-                      class="icon-btn"
-                      title={t.isHidden ? "Revelar" : "Esconder"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        session.value?.table.toggleTokenVisibility(t.id);
-                      }}
-                    >
-                      <Icon inner={t.isHidden ? ICONS.reveal : ICONS.hide} size={16} />
-                    </button>
-                    <button
-                      class="icon-btn"
-                      title="Remover"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        session.value?.table.removeToken(t.id);
-                      }}
-                    >
-                      <Icon inner={ICONS.remove} size={16} />
-                    </button>
-                  </div>
-                )}
-              </li>
-            ))
-          )}
-        </ul>
-      </div>
-      {isGm && <AddTokenCard />}
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div class="scene-token-empty">
+          <MapPin size={28} />
+          <strong>Nenhum token nesta cena</strong>
+          <p>{isGm ? "Abra a Biblioteca e use “Adicionar à cena” em uma imagem de token." : "Seus tokens vinculados ainda não foram colocados neste mapa."}</p>
+        </div>
+      )}
     </section>
-  );
-}
-
-import { useState } from "preact/hooks";
-
-function AddTokenCard() {
-  const [name, setName] = useState("");
-  const [hidden, setHidden] = useState(false);
-  const [ownerId, setOwnerId] = useState("");
-  const players = presence.value.filter((member) => !member.is_gm);
-
-  const add = (e: Event) => {
-    e.preventDefault();
-    session.value?.table.addToken({ name: name || "Token", is_hidden: hidden, owner_id: ownerId || null });
-    setName("");
-    setHidden(false);
-  };
-
-  return (
-    <div class="card">
-      <h2 class="card-title">
-        <Icon inner={ICONS.plus} />
-        Adicionar token
-      </h2>
-      <form class="add-token" onSubmit={add}>
-        <input type="text" placeholder="Nome do token" value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} />
-        <label class="field">
-          <span>Controlado por</span>
-          <select value={ownerId} onChange={(e) => setOwnerId((e.target as HTMLSelectElement).value)}>
-            <option value="">Somente mestre</option>
-            {players.map((player) => <option key={player.user_id} value={player.user_id}>{player.display_name}</option>)}
-          </select>
-        </label>
-        <label class="field-inline">
-          <input type="checkbox" checked={hidden} onChange={(e) => setHidden((e.target as HTMLInputElement).checked)} />
-          <span>Iniciar oculto</span>
-        </label>
-        <button type="submit" class="btn-ghost">Adicionar token vazio</button>
-      </form>
-    </div>
   );
 }

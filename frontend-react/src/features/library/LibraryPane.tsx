@@ -13,6 +13,7 @@ import { MESSAGE_TYPES } from "@/net/message-types";
 import { session } from "@/session";
 import { Icon } from "@/ui/Icon";
 import { ICONS } from "@/lib/token-icons";
+import { libraryPlacement } from "@/features/tokens/token-flow";
 
 type SortMode = "name" | "recent";
 type Editing = { type: "asset" | "folder"; id: number; value: string } | null;
@@ -190,13 +191,27 @@ export function LibraryPane() {
     }
   };
 
-  const useAsset = (asset: AssetOut) => {
-    if (asset.kind === "map") {
+  const useAsset = async (asset: AssetOut) => {
+    const placement = libraryPlacement(asset.kind);
+    if (placement === "map") {
       session.value?.table.setSceneBackground(asset.url);
       setNotice("Mapa aplicado à cena atual.");
-    } else if (asset.kind === "token") {
-      session.value?.table.addToken({ name: asset.original_name, image_url: asset.url });
-      setNotice("Token adicionado à mesa.");
+    } else if (placement === "token") {
+      setBusy(true);
+      try {
+        const token = await session.value?.table.createCatalogToken({
+          name: asset.original_name.replace(/\.[^.]+$/, ""),
+          image_url: asset.url,
+          width: 64,
+          height: 64,
+        });
+        if (token) session.value?.table.placeToken(token.id, 160, 160);
+        setNotice("Token adicionado à cena atual.");
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Não foi possível adicionar o token.");
+      } finally {
+        setBusy(false);
+      }
     }
   };
 
@@ -409,7 +424,17 @@ export function LibraryPane() {
                         </>
                       ) : (
                         <>
-                          {(asset.kind === "map" || asset.kind === "token") && <button type="button" class="library-icon-action" aria-label={`Usar ${asset.original_name}`} title="Usar na mesa" onClick={() => useAsset(asset)}><Icon inner={asset.kind === "map" ? ICONS.map : ICONS.token} size={16} /></button>}
+                          {(asset.kind === "map" || asset.kind === "token") && (
+                            <button
+                              type="button"
+                              class="library-use-action"
+                              aria-label={asset.kind === "map" ? `Usar ${asset.original_name} como mapa` : `Adicionar ${asset.original_name} à cena`}
+                              onClick={() => void useAsset(asset)}
+                            >
+                              <Icon inner={asset.kind === "map" ? ICONS.map : ICONS.token} size={16} />
+                              {asset.kind === "map" ? "Usar como mapa" : "Adicionar à cena"}
+                            </button>
+                          )}
                           <button type="button" class="library-icon-action" aria-label={`Compartilhar ${asset.original_name}`} title="Compartilhar" onClick={() => setShareAsset(shareAsset === asset.id ? null : asset.id)}><Icon inner={ICONS.share} size={16} /></button>
                           <button type="button" class="library-icon-action" aria-label={`Renomear ${asset.original_name}`} title="Renomear" onClick={() => setEditing({ type: "asset", id: asset.id, value: asset.original_name })}><Icon inner={ICONS.rename} size={16} /></button>
                           <button type="button" class="library-icon-action is-danger" aria-label={`Excluir ${asset.original_name}`} title="Excluir" onClick={() => void removeAsset(asset)}><Icon inner={ICONS.remove} size={16} /></button>

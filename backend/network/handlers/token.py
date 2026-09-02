@@ -10,7 +10,7 @@ import logging
 
 from backend.network.connection_manager import Client, manager
 from backend.network.handlers import register
-from backend.schemas.scene import TokenAddIn, TokenUpdateIn
+from backend.schemas.scene import TokenAddIn, TokenPlaceIn, TokenUpdateIn
 from backend.services import scene_service
 
 logger = logging.getLogger("neferus.handlers.token")
@@ -24,6 +24,16 @@ async def _broadcast_token(client: Client, msg_type: str, token: dict) -> None:
         {"type": msg_type, "payload": token},
         gm_only=scene_service.token_hidden_for_players(token),
     )
+
+
+async def _send_catalog_update(client: Client, token_id: int) -> None:
+    token = scene_service.get_campaign_token(client.campaign_id, token_id)
+    if token is None:
+        return
+    message = {"type": "token:catalog_update", "payload": token.model_dump()}
+    await manager.broadcast(client.campaign_id, message, gm_only=True)
+    if token.owner_id:
+        await manager.send_to_user(client.campaign_id, token.owner_id, message)
 
 
 @register("token:update")
@@ -59,8 +69,10 @@ async def handle_token_update(client: Client, payload: dict) -> None:
             {"type": "token:add", "payload": td},
             gm_only=gm_only,
         )
+        await _send_catalog_update(client, token_id)
         return
     await _broadcast_token(client, "token:update", td)
+    await _send_catalog_update(client, token_id)
 
 
 @register("token:move")
@@ -82,6 +94,39 @@ async def handle_token_move(client: Client, payload: dict) -> None:
         )
         return
     await _broadcast_token(client, "token:move", token.model_dump())
+
+
+@register("token:place")
+async def handle_token_place(client: Client, payload: dict) -> None:
+    data = TokenPlaceIn.model_validate(payload)
+    placed = scene_service.place_token(
+        client.campaign_id,
+        data,
+        member_id=client.user_id or "",
+        is_gm=client.is_gm,
+    )
+    if placed is None:
+        await manager.send_personal(
+            client.websocket,
+            {
+                "type": "error",
+                "payload": {
+                    "reason": "place_denied",
+                    "message": "Este token não pode ser colocado nesta cena.",
+                },
+            },
+        )
+        return
+    previous_scene_id, token = placed
+    td = token.model_dump()
+    if previous_scene_id is not None and previous_scene_id != token.scene_id:
+        await manager.broadcast_scene(
+            client.campaign_id,
+            previous_scene_id,
+            {"type": "token:remove", "payload": {"token_id": token.id}},
+        )
+    await _broadcast_token(client, "token:add", td)
+    await _send_catalog_update(client, token.id)
 
 
 @register("token:add")
@@ -124,3 +169,4 @@ async def handle_token_remove(client: Client, payload: dict) -> None:
             scene_id,
             {"type": "token:remove", "payload": {"token_id": token_id}},
         )
+        await _send_catalog_update(client, token_id)
