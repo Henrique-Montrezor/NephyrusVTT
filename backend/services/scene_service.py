@@ -30,6 +30,7 @@ from backend.schemas.scene import (
     TokenCatalogUpdateIn,
     TokenCreateIn,
     TokenOut,
+    TokenPlaceIn,
     TokenUpdateIn,
 )
 from backend.services import asset_service
@@ -340,14 +341,77 @@ def delete_campaign_token(campaign_id: str, token_id: int) -> bool:
         return True
 
 
+def get_campaign_token(
+    campaign_id: str, token_id: int
+) -> TokenCatalogOut | None:
+    with _session() as db:
+        token = db.get(Token, token_id)
+        if token is None or token.campaign_id != campaign_id:
+            return None
+        return _catalog_out(db, token)
+
+
+def effective_scene_id(campaign_id: str, member_id: str) -> int:
+    """Resolve a atribuição individual ou usa a cena padrão da campanha."""
+    with _session() as db:
+        member = db.get(CampaignMember, member_id)
+        if (
+            member is not None
+            and member.campaign_id == campaign_id
+            and member.current_scene_id is not None
+        ):
+            assigned = db.get(Scene, member.current_scene_id)
+            if assigned is not None and assigned.campaign_id == campaign_id:
+                return assigned.id
+        return _ensure_active_scene(db, campaign_id).id
+
+
+def place_token(
+    campaign_id: str,
+    data: TokenPlaceIn,
+    *,
+    member_id: str,
+    is_gm: bool,
+) -> tuple[int | None, TokenOut] | None:
+    """Coloca ou transfere um token, mantendo uma única cena por registro."""
+    with _session() as db:
+        token = db.get(Token, data.token_id)
+        scene = db.get(Scene, data.scene_id)
+        if (
+            token is None
+            or token.campaign_id != campaign_id
+            or scene is None
+            or scene.campaign_id != campaign_id
+        ):
+            return None
+        if not is_gm:
+            if token.owner_id != member_id:
+                return None
+            member = db.get(CampaignMember, member_id)
+            assigned_id = member.current_scene_id if member else None
+            if assigned_id is None:
+                assigned_id = _ensure_active_scene(db, campaign_id).id
+            if assigned_id != scene.id:
+                return None
+        previous_scene_id = token.scene_id
+        token.scene_id = scene.id
+        token.scene = scene
+        tw, th = _token_px_size(scene, token)
+        token.x, token.y = _clamp_token_pos(scene, tw, th, data.x, data.y)
+        db.flush()
+        return previous_scene_id, TokenOut.model_validate(token)
+
+
 def remove_token(token_id: int) -> int | None:
-    """Remove um token. Retorna o scene_id afetado (para broadcast) ou None."""
+    """Retira um token da mesa sem removê-lo do catálogo."""
     with _session() as db:
         token = db.get(Token, token_id)
         if token is None:
             return None
         scene_id = token.scene_id
-        db.delete(token)
+        token.scene_id = None
+        token.scene = None
+        db.flush()
         return scene_id
 
 

@@ -146,6 +146,13 @@ class TokenRemoveIn(BaseModel):
     token_id: int
 
 
+class TokenPlaceIn(BaseModel):
+    token_id: int
+    scene_id: int
+    x: float
+    y: float
+
+
 class TokenVisibilityIn(BaseModel):
     token_id: int
     is_hidden: bool
