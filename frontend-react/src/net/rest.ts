@@ -60,8 +60,16 @@ export interface CharacterSheetOut {
   page_count: number;
   fields: SheetFieldOut[];
   values: Record<string, unknown>;
+  token_stages: TokenStageOut[];
   created_at: string;
   updated_at: string;
+}
+
+export interface TokenStageOut {
+  id: string;
+  name: string;
+  image_url: string;
+  order: number;
 }
 
 export interface SheetOwnerOut {
@@ -364,6 +372,26 @@ export class SheetClient {
     body.append("title", title);
     const res = await fetch(this.base, { method: "POST", headers: this.headers(), body });
     if (!res.ok) return readError(res, "Falha ao importar ficha");
+    return res.json();
+  }
+
+  async createFromTemplate(ownerId: string, title: string): Promise<CharacterSheetOut> {
+    const res = await fetch(`${this.base}/from-template`, {
+      method: "POST",
+      headers: this.headers(true),
+      body: JSON.stringify({ owner_id: ownerId, title }),
+    });
+    if (!res.ok) return readError(res, "Falha ao montar ficha pelo modelo");
+    return res.json();
+  }
+
+  async saveTokenStages(sheetId: string, stages: TokenStageOut[]): Promise<CharacterSheetOut> {
+    const res = await fetch(`/api/sheets/${sheetId}/token-stages`, {
+      method: "PUT",
+      headers: this.headers(true),
+      body: JSON.stringify({ stages }),
+    });
+    if (!res.ok) return readError(res, "Falha ao salvar estágios do token");
     return res.json();
   }
 

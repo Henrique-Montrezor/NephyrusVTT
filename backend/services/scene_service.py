@@ -268,9 +268,8 @@ def _resolve_token_links(
             owner is None
             or owner.campaign_id != campaign_id
             or not owner.is_active
-            or owner.role == "gm"
         ):
-            raise TokenCatalogError("jogador inválido para esta campanha")
+            raise TokenCatalogError("proprietário inválido para esta campanha")
     return sheet_id, resolved_owner
 
 

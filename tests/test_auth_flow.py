@@ -44,6 +44,86 @@ class AuthFlowTest(unittest.TestCase):
         shutil.rmtree(_storage_path, ignore_errors=True)
         shutil.rmtree(_data_path, ignore_errors=True)
 
+    def test_gm_can_own_sheet_built_from_campaign_template(self) -> None:
+        created = self.client.post(
+            "/api/auth/campaigns",
+            json={"campaign_name": "Oráculos", "display_name": "Mestre Iris"},
+        ).json()
+        campaign_id = created["identity"]["campaign_id"]
+        gm_id = created["identity"]["member_id"]
+        headers = {"Authorization": f"Bearer {created['access_token']}"}
+        template = self.client.post(
+            f"/api/campaigns/{campaign_id}/system/template/example", headers=headers
+        ).json()
+
+        owners = self.client.get(
+            f"/api/campaigns/{campaign_id}/sheet-owners", headers=headers
+        )
+        self.assertEqual(owners.status_code, 200, owners.text)
+        self.assertIn(gm_id, [owner["id"] for owner in owners.json()])
+
+        response = self.client.post(
+            f"/api/campaigns/{campaign_id}/sheets/from-template",
+            headers=headers,
+            json={"owner_id": gm_id, "title": "Oráculo"},
+        )
+        self.assertEqual(response.status_code, 201, response.text)
+        sheet = response.json()
+        self.assertEqual(sheet["owner_id"], gm_id)
+        self.assertEqual(sheet["title"], "Oráculo")
+        self.assertEqual(sheet["values"], {})
+        self.assertEqual(sheet["fields"], template["fields"])
+        token = self.client.post(
+            f"/api/campaigns/{campaign_id}/tokens",
+            headers=headers,
+            json={"name": "Oráculo", "sheet_id": sheet["id"]},
+        )
+        self.assertEqual(token.status_code, 201, token.text)
+        self.assertEqual(token.json()["owner_id"], gm_id)
+
+    def test_gm_saves_ordered_token_stages_on_sheet(self) -> None:
+        created = self.client.post(
+            "/api/auth/campaigns",
+            json={"campaign_name": "Mudanças", "display_name": "Mestre Sol"},
+        ).json()
+        campaign_id = created["identity"]["campaign_id"]
+        gm_id = created["identity"]["member_id"]
+        headers = {"Authorization": f"Bearer {created['access_token']}"}
+        self.client.post(
+            f"/api/campaigns/{campaign_id}/system/template/example", headers=headers
+        )
+        sheet = self.client.post(
+            f"/api/campaigns/{campaign_id}/sheets/from-template",
+            headers=headers,
+            json={"owner_id": gm_id, "title": "Sol"},
+        ).json()
+        urls = []
+        for filename in ("normal.png", "combate.png"):
+            asset = self.client.post(
+                f"/api/campaigns/{campaign_id}/assets",
+                headers=headers,
+                data={"kind": "token", "folder": "Tokens"},
+                files={"file": (filename, b"image", "image/png")},
+            )
+            self.assertEqual(asset.status_code, 200, asset.text)
+            urls.append(asset.json()["url"])
+
+        response = self.client.put(
+            f"/api/sheets/{sheet['id']}/token-stages",
+            headers=headers,
+            json={
+                "stages": [
+                    {"id": "normal", "name": "Normal", "image_url": urls[0], "order": 0},
+                    {"id": "combate", "name": "Combate", "image_url": urls[1], "order": 1},
+                ]
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            [stage["name"] for stage in response.json()["token_stages"]],
+            ["Normal", "Combate"],
+        )
+
     def test_campaign_join_and_protected_resources(self) -> None:
         created = self.client.post(
             "/api/auth/campaigns",

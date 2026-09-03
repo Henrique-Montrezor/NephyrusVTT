@@ -22,7 +22,9 @@ from backend.config import settings
 from backend.database import SessionLocal
 from backend.models.campaign import CampaignMember
 from backend.models.character_sheet import CharacterSheet
+from backend.models.asset import KIND_TOKEN
 from backend.schemas.character_sheet import CharacterSheetOut, SheetFieldOut
+from backend.services import asset_service
 
 # PDFs complexos podem trazer centenas de controles AcroForm sem nome útil.
 # Mantemos espaço adicional para os atributos explícitos do sistema.
@@ -222,12 +224,64 @@ def list_owners(campaign_id: str) -> list[dict[str, str]]:
             select(CampaignMember)
             .where(
                 CampaignMember.campaign_id == campaign_id,
-                CampaignMember.role == "player",
                 CampaignMember.is_active.is_(True),
             )
-            .order_by(CampaignMember.display_name)
+            .order_by(CampaignMember.role, CampaignMember.display_name)
         )
         return [{"id": member.id, "display_name": member.display_name} for member in db.scalars(stmt).all()]
+
+
+def create_sheet_from_template(
+    campaign_id: str,
+    template_id: str,
+    owner_id: str,
+    title: str,
+) -> CharacterSheetOut:
+    found = get_sheet(template_id)
+    if found is None or found[0].campaign_id != campaign_id:
+        raise SheetError("a campanha ainda não possui modelo de ficha")
+    template, source = found
+    if not source.is_file():
+        raise SheetError("arquivo do modelo não encontrado")
+    created = create_sheet(
+        campaign_id,
+        owner_id,
+        title,
+        template.source_name,
+        source.read_bytes(),
+    )
+    with SessionLocal() as db:
+        row = db.get(CharacterSheet, created.id)
+        assert row is not None
+        row.fields_json = json.dumps(
+            [field.model_dump() for field in template.fields], ensure_ascii=False
+        )
+        row.values_json = "{}"
+        db.commit()
+    refreshed = get_sheet(created.id)
+    assert refreshed is not None
+    return refreshed[0]
+
+
+def save_token_stages(sheet_id: str, stages: list[dict[str, Any]]) -> CharacterSheetOut | None:
+    with SessionLocal() as db:
+        sheet = db.get(CharacterSheet, sheet_id)
+        if sheet is None:
+            return None
+        ids = [stage["id"] for stage in stages]
+        orders = [stage["order"] for stage in stages]
+        if len(ids) != len(set(ids)) or orders != list(range(len(stages))):
+            raise SheetError("os estágios devem ter IDs únicos e ordem sequencial")
+        for stage in stages:
+            if asset_service.get_campaign_asset(
+                sheet.campaign_id, url=stage["image_url"], kinds={KIND_TOKEN}
+            ) is None:
+                raise SheetError("imagem de estágio inválida para esta campanha")
+        sheet.token_stages_json = json.dumps(stages, ensure_ascii=False)
+        db.commit()
+        db.refresh(sheet)
+        owner = db.get(CampaignMember, sheet.owner_id)
+        return _output(sheet, owner.display_name if owner else "Jogador removido")
 
 
 def get_sheet(sheet_id: str) -> tuple[CharacterSheetOut, Path] | None:

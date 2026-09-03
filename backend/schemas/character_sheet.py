@@ -47,6 +47,15 @@ class SheetValuesIn(BaseModel):
     values: dict[str, Any]
 
 
+class SheetFromTemplateIn(BaseModel):
+    owner_id: str
+    title: str = Field(min_length=1, max_length=160)
+
+
+class TokenStagesIn(BaseModel):
+    stages: list[TokenStageOut] = Field(max_length=12)
+
+
 class SheetFieldCreateIn(BaseModel):
     key: str = Field(min_length=1, max_length=120)
     label: str = Field(min_length=1, max_length=160)

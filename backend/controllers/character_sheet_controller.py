@@ -14,8 +14,10 @@ from backend.schemas.character_sheet import (
     SheetFieldCreateIn,
     SheetFieldVisibilityIn,
     SheetFieldUpdateIn,
+    SheetFromTemplateIn,
     SheetOwnerOut,
     SheetValuesIn,
+    TokenStagesIn,
 )
 from backend.services import character_sheet_service as sheets
 from backend.services.auth_service import AuthIdentity
@@ -57,6 +59,48 @@ async def import_character_sheet(
         return sheets.create_sheet(campaign_id, owner_id, title, file.filename or "ficha.pdf", await file.read())
     except SheetError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post(
+    "/campaigns/{campaign_id}/sheets/from-template",
+    response_model=CharacterSheetOut,
+    status_code=201,
+)
+async def create_character_sheet_from_template(
+    campaign_id: str,
+    body: SheetFromTemplateIn,
+    identity: AuthIdentity = Depends(gm_identity),
+) -> CharacterSheetOut:
+    from backend.services import game_system_service as systems
+
+    current = systems.get_system(campaign_id)
+    template_id = current.manifest.base_sheet_id if current else None
+    if not template_id:
+        raise HTTPException(status_code=400, detail="a campanha ainda não possui modelo de ficha")
+    try:
+        return sheets.create_sheet_from_template(
+            campaign_id, template_id, body.owner_id, body.title
+        )
+    except SheetError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.put("/sheets/{sheet_id}/token-stages", response_model=CharacterSheetOut)
+async def update_character_sheet_token_stages(
+    sheet_id: str,
+    body: TokenStagesIn,
+    identity: AuthIdentity = Depends(current_identity),
+) -> CharacterSheetOut:
+    found = sheets.get_sheet(sheet_id)
+    _authorized(found[0] if found else None, identity, gm_only=True)
+    try:
+        result = sheets.save_token_stages(
+            sheet_id, [stage.model_dump() for stage in body.stages]
+        )
+    except SheetError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    assert result is not None
+    return result
 
 
 @router.get("/sheets/{sheet_id}/pdf")
