@@ -38,11 +38,14 @@ export function SheetTokenPanel({ sheet, onChange }: { sheet: CharacterSheetOut;
     try {
       const nextSheet = await new SheetClient(identity.value).saveTokenStages(sheet.id, ordered(stages));
       onChange?.(nextSheet);
-      const firstImage = nextSheet.token_stages[0]?.image_url;
-      if (firstImage) {
-        const data = { name: name.trim() || sheet.title, image_url: firstImage, sheet_id: sheet.id, width: size, height: size };
-        if (token) await session.value?.table.updateCatalogToken(token.id, data);
-        else await session.value?.table.createCatalogToken(data);
+      const nextActive = Math.min(activeStage, Math.max(0, nextSheet.token_stages.length - 1));
+      const stageImage = nextSheet.token_stages[nextActive]?.image_url;
+      if (stageImage) {
+        const data = { name: name.trim() || sheet.title, image_url: stageImage, sheet_id: sheet.id, width: size, height: size };
+        if (token) {
+          await session.value?.table.updateCatalogToken(token.id, data);
+          session.value?.table.setTokenStage(token.id, nextActive);
+        } else await session.value?.table.createCatalogToken(data);
       }
       setStatus(message);
     } catch (error) { setStatus(error instanceof Error ? error.message : "Não foi possível salvar os estágios."); }

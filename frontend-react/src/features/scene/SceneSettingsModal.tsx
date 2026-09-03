@@ -35,7 +35,8 @@ export function SceneSettingsModal() {
       const saved = await new SceneClient(identity.value).saveMapStages(meta.sceneId, ordered(nextStages), nextActive);
       setStages(saved.map_stages ?? []);
       setActive(saved.active_map_stage ?? 0);
-      session.value?.table.openScene(meta.sceneId);
+      if (saved.background_url) session.value?.table.setSceneBackground(saved.background_url);
+      else session.value?.table.openScene(meta.sceneId);
       setStatus("Mapa salvo automaticamente.");
     } catch (error) { setStatus(error instanceof Error ? error.message : "Não foi possível salvar o mapa."); }
     finally { setBusy(false); }

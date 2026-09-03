@@ -294,7 +294,10 @@ class AuthFlowTest(unittest.TestCase):
             f"/api/campaigns/{campaign_id}/sheet-owners", headers=gm_headers
         )
         self.assertEqual(owners.status_code, 200, owners.text)
-        self.assertEqual(owners.json()[0]["display_name"], "Dante")
+        self.assertEqual(
+            {owner["display_name"] for owner in owners.json()},
+            {"Mestre Iara", "Dante"},
+        )
 
         source = BytesIO()
         pdf = canvas.Canvas(source)
