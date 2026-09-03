@@ -84,13 +84,20 @@ export interface ScenePayload {
   campaign_id: string;
   name: string;
   background_url: string | null;
-  map_stages?: { id: string; name: string; image_url: string; order: number }[];
+  map_stages?: MapStagePayload[];
   active_map_stage?: number;
   width: number;
   height: number;
   grid: GridState;
   fog?: FogPayload;
   tokens?: TokenPayload[];
+}
+
+export interface MapStagePayload {
+  id: string;
+  name: string;
+  image_url: string;
+  order: number;
 }
 
 /** Item de `scene:list`. */

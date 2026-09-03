@@ -1,32 +1,31 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { ArrowSquareIn, Broadcast, ImageSquare, MapTrifold, PencilSimple, Plus, Trash, UploadSimple, UsersThree } from "@phosphor-icons/react";
+import { ArrowSquareIn, Broadcast, GearSix, ImageSquare, MapTrifold, PencilSimple, Plus, Trash, UploadSimple, UsersThree } from "@phosphor-icons/react";
 import { sceneList, showUiNotice } from "@/state/ui-store";
-import { grid, sceneMeta } from "@/state/game-store";
+import { sceneMeta } from "@/state/game-store";
 import { identity } from "@/state/identity";
 import { session } from "@/session";
 import { AssetClient, type AssetOut } from "@/net/rest";
 import type { SceneListItem, SceneParticipant } from "@/net/types";
 import { openModal } from "@/ui/modal";
+import { SceneSettingsModal } from "./SceneSettingsModal";
 
 export function ScenePane() {
   const isGm = identity.value.isGm;
-  const [snap, setSnap] = useState(true);
   useEffect(() => { if (isGm) session.value?.table.listScenes(); }, []);
+  const settings = () => openModal({ title: `Configurações · ${sceneMeta.value.name}`, body: <SceneSettingsModal /> });
 
   return (
     <section class="tab-pane active">
-      {isGm && <ScenesDirector />}
-      <div class="card compact-card"><h2 class="card-title">Movimento</h2><label class="field field-inline"><input type="checkbox" checked={snap} onChange={(event) => { const enabled = (event.target as HTMLInputElement).checked; setSnap(enabled); session.value?.table.setSnap(enabled); }} /><span>Encaixar tokens no grid</span></label></div>
-      {isGm && <GridCard />}
+      {isGm ? <ScenesDirector onSettings={settings} /> : <header class="pane-lead"><div><span class="eyebrow">Cena aberta</span><h2>{sceneMeta.value.name}</h2><p>Ajuste como seus tokens se movem neste dispositivo.</p></div><button class="btn-ghost btn-mini" onClick={settings}><GearSix size={17} /> Configurar</button></header>}
     </section>
   );
 }
 
-function ScenesDirector() {
+function ScenesDirector({ onSettings }: { onSettings: () => void }) {
   const scenes = sceneList.value;
   return (
     <div class="scene-director">
-      <header class="pane-lead"><div><span class="eyebrow">Direção da sessão</span><h2>Cenas</h2><p>Prepare mapas em silêncio ou direcione o grupo quando estiver pronto.</p></div><button class="btn-primary btn-mini" onClick={openSceneCreator}><Plus size={16} weight="bold" /> Nova</button></header>
+      <header class="pane-lead"><div><span class="eyebrow">Direção da sessão</span><h2>Cenas</h2><p>Prepare mapas em silêncio ou direcione o grupo quando estiver pronto.</p></div><div class="scene-lead-actions"><button class="btn-ghost btn-mini" onClick={onSettings}><GearSix size={17} /> Ajustes</button><button class="btn-primary btn-mini" onClick={openSceneCreator}><Plus size={16} weight="bold" /> Nova</button></div></header>
       <div class="scene-rail">
         {scenes.map((scene) => <SceneCard key={scene.id} scene={scene} />)}
         {scenes.length === 0 && <button class="scene-empty-card" onClick={openSceneCreator}><MapTrifold size={30} /><strong>Crie a primeira cena</strong><span>Escolha um mapa e prepare o tabuleiro.</span></button>}
@@ -97,11 +96,3 @@ function SceneCreator({ onDone }: { onDone: () => void }) {
   return <form class="scene-creator" onSubmit={create}><div class="scene-upload-row"><button type="button" class="scene-upload" onClick={() => input.current?.click()}><UploadSimple size={24} /><strong>Enviar mapa</strong><span>PNG, JPG ou WebP</span></button><input ref={input} hidden type="file" accept="image/*" onChange={(event) => void upload((event.target as HTMLInputElement).files?.[0])} /><label class="field"><span>Nome da cena</span><input autoFocus value={name} onInput={(event) => setName((event.target as HTMLInputElement).value)} placeholder="Ex.: Templo submerso" /></label></div><div class="map-library"><span>Mapas da campanha</span><div>{maps.map((map) => <button type="button" key={map.id} class={url === map.url ? "selected" : ""} title={map.original_name} style={{ backgroundImage: `url("${map.url}")` }} onClick={() => setUrl(map.url)} />)}{!maps.length && <p>Nenhum mapa enviado ainda.</p>}</div></div><button class="btn-primary" type="submit" disabled={busy || !name.trim()}>{busy ? "Enviando…" : "Criar cena preparada"}</button></form>;
 }
 
-function GridCard() {
-  const g = grid.value;
-  const [meters, setMeters] = useState(g.meters_per_square);
-  const [w, setW] = useState(0);
-  const [h, setH] = useState(0);
-  const applyResize = () => { const pxPerMeter = g.size_px / (g.meters_per_square || 1); if (w > 0 && h > 0) session.value?.table.resizeScene(w * pxPerMeter, h * pxPerMeter); };
-  return <div class="card compact-card"><h2 class="card-title">Grid &amp; escala</h2><label class="field field-inline"><input type="checkbox" checked={g.enabled} onChange={(event) => session.value?.table.updateGrid({ enabled: (event.target as HTMLInputElement).checked })} /><span>Exibir grid</span></label><label class="field"><span>Metros por quadrado</span><input type="number" min={0.5} step={0.5} value={meters} onInput={(event) => setMeters(Number((event.target as HTMLInputElement).value) || 1.5)} onChange={() => session.value?.table.updateGrid({ meters_per_square: meters })} /></label><div class="field"><span>Mapa em metros · atual {Math.round(sceneMeta.value.width)} × {Math.round(sceneMeta.value.height)} px</span><div class="size-row"><input type="number" min={1} placeholder="larg." value={w || ""} onInput={(event) => setW(Number((event.target as HTMLInputElement).value) || 0)} /><span>×</span><input type="number" min={1} placeholder="alt." value={h || ""} onInput={(event) => setH(Number((event.target as HTMLInputElement).value) || 0)} /><button type="button" class="btn-ghost" onClick={applyResize}>Aplicar</button></div></div></div>;
-}

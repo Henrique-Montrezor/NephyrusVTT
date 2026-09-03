@@ -18,7 +18,7 @@ from backend.database import SessionLocal
 from backend.models.scene import Scene
 from backend.models.campaign import CampaignMember
 from backend.models.character_sheet import CharacterSheet
-from backend.models.asset import KIND_TOKEN
+from backend.models.asset import KIND_MAP, KIND_TOKEN
 from backend.models.token import LAYER_GM, LAYER_OBJECT, LAYERS, Token
 from backend.schemas.scene import (
     FogOut,
@@ -693,6 +693,28 @@ def set_background(scene_id: int, url: str) -> SceneOut | None:
         if scene is None:
             return None
         scene.background_url = url
+        db.flush()
+        return _to_scene_out(scene)
+
+
+def save_map_stages(scene_id: int, stages: list[dict], active_stage: int) -> SceneOut | None:
+    """Salva estados visuais do mapa e ativa a imagem escolhida."""
+    with _session() as db:
+        scene = db.get(Scene, scene_id)
+        if scene is None:
+            return None
+        ids = [stage["id"] for stage in stages]
+        orders = [stage["order"] for stage in stages]
+        if len(ids) != len(set(ids)) or orders != list(range(len(stages))):
+            raise ValueError("os estágios devem ter IDs únicos e ordem sequencial")
+        if stages and active_stage >= len(stages):
+            raise ValueError("estágio ativo inválido")
+        for stage in stages:
+            if asset_service.get_campaign_asset(scene.campaign_id, url=stage["image_url"], kinds={KIND_MAP}) is None:
+                raise ValueError("imagem de mapa inválida para esta campanha")
+        scene.map_stages_json = json.dumps(stages, ensure_ascii=False)
+        scene.active_map_stage = active_stage if stages else 0
+        scene.background_url = stages[active_stage]["image_url"] if stages else None
         db.flush()
         return _to_scene_out(scene)
 

@@ -2,7 +2,7 @@
  * Clientes REST (/api). Portados de asset_controller.js e page_controller.js.
  * Todas as chamadas enviam o token de acesso da sessão atual.
  */
-import type { Identity, TokenCatalogItem } from "./types";
+import type { Identity, MapStagePayload, ScenePayload, TokenCatalogItem } from "./types";
 
 export type AssetKind = "map" | "token" | "pdf" | "audio" | "doc";
 
@@ -182,6 +182,20 @@ export interface TokenCatalogDraft {
   owner_id?: string | null;
   width?: number | null;
   height?: number | null;
+}
+
+export class SceneClient {
+  constructor(private readonly identity: Identity) {}
+
+  async saveMapStages(sceneId: number, stages: MapStagePayload[], activeStage: number): Promise<ScenePayload> {
+    const res = await fetch(`/api/scenes/${sceneId}/map-stages`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${this.identity.accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ stages, active_stage: activeStage }),
+    });
+    if (!res.ok) return readError(res, "Falha ao salvar estágios do mapa");
+    return res.json();
+  }
 }
 
 export class TokenClient {

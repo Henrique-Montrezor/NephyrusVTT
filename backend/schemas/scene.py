@@ -57,6 +57,11 @@ class MapStageOut(BaseModel):
     order: int = Field(ge=0)
 
 
+class MapStagesIn(BaseModel):
+    stages: list[MapStageOut] = Field(max_length=12)
+    active_stage: int = Field(default=0, ge=0, le=11)
+
+
 class SceneOut(BaseModel):
     """Estado completo da cena para bootstrap/render."""
 

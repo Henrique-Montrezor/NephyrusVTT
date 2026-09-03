@@ -149,6 +149,40 @@ class AuthFlowTest(unittest.TestCase):
         self.assertEqual(updated.image_url, urls[1])
         self.assertEqual((updated.width, updated.height), (96, 96))
 
+    def test_gm_saves_map_stages_and_activates_one(self) -> None:
+        created = self.client.post(
+            "/api/auth/campaigns",
+            json={"campaign_name": "Ruínas", "display_name": "Mestre Lua"},
+        ).json()
+        campaign_id = created["identity"]["campaign_id"]
+        headers = {"Authorization": f"Bearer {created['access_token']}"}
+        scene = self.client.get(f"/api/campaigns/{campaign_id}/scene", headers=headers).json()
+        urls = []
+        for filename in ("inteiro.jpg", "destruido.jpg"):
+            asset = self.client.post(
+                f"/api/campaigns/{campaign_id}/assets",
+                headers=headers,
+                data={"kind": "map", "folder": "Mapas"},
+                files={"file": (filename, b"image", "image/jpeg")},
+            )
+            urls.append(asset.json()["url"])
+
+        response = self.client.put(
+            f"/api/scenes/{scene['id']}/map-stages",
+            headers=headers,
+            json={
+                "active_stage": 1,
+                "stages": [
+                    {"id": "normal", "name": "Normal", "image_url": urls[0], "order": 0},
+                    {"id": "ruina", "name": "Destruído", "image_url": urls[1], "order": 1},
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["active_map_stage"], 1)
+        self.assertEqual(response.json()["background_url"], urls[1])
+        self.assertEqual([stage["name"] for stage in response.json()["map_stages"]], ["Normal", "Destruído"])
+
     def test_campaign_join_and_protected_resources(self) -> None:
         created = self.client.post(
             "/api/auth/campaigns",

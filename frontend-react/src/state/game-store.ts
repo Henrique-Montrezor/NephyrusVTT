@@ -9,6 +9,7 @@ import type {
   FogUpdatePayload,
   GridState,
   ScenePayload,
+  MapStagePayload,
   Token,
   TokenPayload,
 } from "@/net/types";
@@ -18,6 +19,8 @@ export interface SceneMeta {
   campaignId: string | null;
   name: string;
   backgroundUrl: string | null;
+  mapStages: MapStagePayload[];
+  activeMapStage: number;
   width: number;
   height: number;
 }
@@ -34,6 +37,8 @@ export const sceneMeta = signal<SceneMeta>({
   campaignId: null,
   name: "",
   backgroundUrl: null,
+  mapStages: [],
+  activeMapStage: 0,
   width: 0,
   height: 0,
 });
@@ -94,6 +99,8 @@ export function loadScene(scene: ScenePayload): void {
     campaignId: scene.campaign_id,
     name: scene.name,
     backgroundUrl: scene.background_url,
+    mapStages: scene.map_stages ?? [],
+    activeMapStage: scene.active_map_stage ?? 0,
     width: scene.width,
     height: scene.height,
   };
