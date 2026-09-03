@@ -11,3 +11,13 @@ export function libraryPlacement(kind: string): "map" | "token" | null {
 
 export const cleanAssetName = (name: string): string =>
   name.replace(/\.(png|jpe?g|webp|gif|avif)$/i, "");
+
+export function sheetCards<
+  S extends { id: string },
+  T extends { sheet_id?: string | null },
+>(sheets: S[], tokenCatalog: T[]): { sheet: S; token?: T }[] {
+  return sheets.map((sheet) => ({
+    sheet,
+    token: tokenCatalog.find((token) => token.sheet_id === sheet.id),
+  }));
+}
