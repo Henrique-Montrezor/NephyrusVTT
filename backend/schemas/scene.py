@@ -194,6 +194,9 @@ class TokenUpdateIn(BaseModel):
     conditions: list[str] | None = None
     layer: str | None = None
     owner_id: str | None = None
+    active_stage: int | None = Field(default=None, ge=0, le=11)
+    initiative: int | None = Field(default=None, ge=-999, le=999)
+    sort_order: int | None = Field(default=None, ge=0)
 
 
 class GridUpdateIn(BaseModel):

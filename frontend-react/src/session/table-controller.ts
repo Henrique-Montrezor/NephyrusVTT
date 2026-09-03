@@ -242,6 +242,9 @@ export class TableController {
       conditions?: string[];
       layer?: TokenLayer;
       owner_id?: string | null;
+      active_stage?: number;
+      initiative?: number;
+      sort_order?: number;
     } = {},
   ): void {
     const token = tokens.value.get(tokenId);
@@ -255,7 +258,17 @@ export class TableController {
     if (props.conditions != null) payload.conditions = props.conditions;
     if (props.layer != null) payload.layer = props.layer;
     if (this.identity.isGm && props.owner_id !== undefined) payload.owner_id = props.owner_id;
+    if (props.active_stage != null) payload.active_stage = props.active_stage;
+    if (props.initiative != null) payload.initiative = props.initiative;
+    if (props.sort_order != null) payload.sort_order = props.sort_order;
     ws.send(MESSAGE_TYPES.TOKEN_UPDATE, payload);
+  }
+
+  setTokenStage(tokenId: number, activeStage: number): void {
+    this.updateToken(tokenId, { active_stage: activeStage });
+  }
+  setTokenInitiative(tokenId: number, initiative: number): void {
+    this.updateToken(tokenId, { initiative });
   }
 
   setTokenLayer(tokenId: number, layer: TokenLayer): void {

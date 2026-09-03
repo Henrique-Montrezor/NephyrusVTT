@@ -62,6 +62,9 @@ function normalizeToken(data: TokenPayload, prev?: Token): Token {
     isLocked: false,
     lightRadius: 0,
     conditions: [],
+    activeStage: 0,
+    initiative: 0,
+    sortOrder: 0,
   };
   return {
     id: data.id,
@@ -78,6 +81,9 @@ function normalizeToken(data: TokenPayload, prev?: Token): Token {
     isLocked: data.is_locked !== undefined ? Boolean(data.is_locked) : base.isLocked,
     lightRadius: data.light_radius ?? base.lightRadius,
     conditions: data.conditions !== undefined ? data.conditions : base.conditions,
+    activeStage: data.active_stage ?? base.activeStage,
+    initiative: data.initiative ?? base.initiative,
+    sortOrder: data.sort_order ?? base.sortOrder,
   };
 }
 

@@ -123,6 +123,31 @@ class AuthFlowTest(unittest.TestCase):
             [stage["name"] for stage in response.json()["token_stages"]],
             ["Normal", "Combate"],
         )
+        token = self.client.post(
+            f"/api/campaigns/{campaign_id}/tokens",
+            headers=headers,
+            json={"name": "Sol", "sheet_id": sheet["id"]},
+        ).json()
+        self.assertEqual(token["image_url"], urls[0])
+        updated = scene_service.update_token(
+            TokenUpdateIn(
+                token_id=token["id"],
+                width=96,
+                height=96,
+                active_stage=1,
+                initiative=17,
+                sort_order=2,
+            ),
+            user_id=gm_id,
+            is_gm=True,
+        )
+        self.assertIsNotNone(updated)
+        assert updated is not None
+        self.assertEqual(updated.active_stage, 1)
+        self.assertEqual(updated.initiative, 17)
+        self.assertEqual(updated.sort_order, 2)
+        self.assertEqual(updated.image_url, urls[1])
+        self.assertEqual((updated.width, updated.height), (96, 96))
 
     def test_campaign_join_and_protected_resources(self) -> None:
         created = self.client.post(

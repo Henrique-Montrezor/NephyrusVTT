@@ -284,13 +284,19 @@ def create_campaign_token(
             sheet_id=data.sheet_id,
             owner_id=data.owner_id,
         )
+        image_url = data.image_url
+        if sheet_id and not image_url:
+            sheet = db.get(CharacterSheet, sheet_id)
+            stages = json.loads(sheet.token_stages_json or "[]") if sheet else []
+            if stages:
+                image_url = min(stages, key=lambda stage: stage["order"])["image_url"]
         token = Token(
             campaign_id=campaign_id,
             scene_id=None,
             sheet_id=sheet_id,
             owner_id=owner_id,
             name=data.name.strip() or "Token",
-            image_url=data.image_url,
+            image_url=image_url,
             width=data.width,
             height=data.height,
             layer=LAYER_OBJECT,
@@ -633,6 +639,18 @@ def update_token(
             token.width = data.width
         if data.height is not None:
             token.height = data.height
+        if data.active_stage is not None:
+            sheet = db.get(CharacterSheet, token.sheet_id) if token.sheet_id else None
+            stages = json.loads(sheet.token_stages_json or "[]") if sheet else []
+            ordered = sorted(stages, key=lambda stage: stage["order"])
+            if data.active_stage >= len(ordered):
+                return None
+            token.active_stage = data.active_stage
+            token.image_url = ordered[data.active_stage]["image_url"]
+        if data.initiative is not None:
+            token.initiative = data.initiative
+        if data.sort_order is not None:
+            token.sort_order = data.sort_order
         if data.is_locked is not None:
             token.is_locked = data.is_locked
         if data.light_radius is not None:

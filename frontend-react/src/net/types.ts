@@ -22,6 +22,9 @@ export interface TokenPayload {
   is_locked?: boolean;
   light_radius?: number;
   conditions?: string[];
+  active_stage?: number;
+  initiative?: number;
+  sort_order?: number;
 }
 
 export interface TokenCatalogItem extends TokenPayload {
@@ -54,6 +57,9 @@ export interface Token {
   isLocked: boolean;
   lightRadius: number;
   conditions: string[];
+  activeStage: number;
+  initiative: number;
+  sortOrder: number;
 }
 
 export interface GridState {
@@ -78,6 +84,8 @@ export interface ScenePayload {
   campaign_id: string;
   name: string;
   background_url: string | null;
+  map_stages?: { id: string; name: string; image_url: string; order: number }[];
+  active_map_stage?: number;
   width: number;
   height: number;
   grid: GridState;
