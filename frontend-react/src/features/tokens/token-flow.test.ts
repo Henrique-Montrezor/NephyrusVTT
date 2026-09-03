@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanAssetName, findSheetToken, libraryPlacement, sheetCards } from "./token-flow";
+import { cleanAssetName, findSheetToken, libraryPlacement, reorderTokens, sheetCards, sortInitiative } from "./token-flow";
 
 describe("token flow", () => {
   it("finds the token linked to the selected sheet", () => {
@@ -31,5 +31,20 @@ describe("token flow", () => {
       ["a", undefined],
       ["b", 9],
     ]);
+  });
+
+  it("sorts initiative from highest to lowest and keeps queue order on ties", () => {
+    const tokens = [
+      { id: 1, initiative: 12, sortOrder: 2 },
+      { id: 2, initiative: 18, sortOrder: 4 },
+      { id: 3, initiative: 12, sortOrder: 1 },
+    ];
+    expect(sortInitiative(tokens).map((token) => token.id)).toEqual([2, 3, 1]);
+  });
+
+  it("moves one token within the queue without mutating the source", () => {
+    const tokens = [{ id: 1 }, { id: 2 }, { id: 3 }];
+    expect(reorderTokens(tokens, 3, 1).map((token) => token.id)).toEqual([3, 1, 2]);
+    expect(tokens.map((token) => token.id)).toEqual([1, 2, 3]);
   });
 });

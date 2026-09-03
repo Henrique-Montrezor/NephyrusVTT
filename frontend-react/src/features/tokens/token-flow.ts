@@ -21,3 +21,16 @@ export function sheetCards<
     token: tokenCatalog.find((token) => token.sheet_id === sheet.id),
   }));
 }
+
+export function sortInitiative<T extends { initiative: number; sortOrder: number }>(tokens: T[]): T[] {
+  return [...tokens].sort((left, right) => right.initiative - left.initiative || left.sortOrder - right.sortOrder);
+}
+
+export function reorderTokens<T extends { id: number }>(tokens: T[], tokenId: number, beforeId: number): T[] {
+  const next = tokens.filter((token) => token.id !== tokenId);
+  const moved = tokens.find((token) => token.id === tokenId);
+  if (!moved) return next;
+  const target = next.findIndex((token) => token.id === beforeId);
+  next.splice(target < 0 ? next.length : target, 0, moved);
+  return next;
+}

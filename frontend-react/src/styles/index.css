@@ -4077,10 +4077,13 @@ a:focus-visible {
   gap: 7px;
 }
 
+.scene-token-sort { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text-2); font: inherit; font-size: .68rem; font-weight: 700; cursor: pointer; }
+.scene-token-sort:hover { border-color: var(--accent); color: var(--accent); }
+
 .scene-token-row {
   min-width: 0;
   display: grid;
-  grid-template-columns: 50px minmax(0, 1fr) auto auto;
+  grid-template-columns: 18px 22px 50px minmax(0, 1fr) 46px auto auto;
   align-items: center;
   gap: 8px;
   padding: 7px;
@@ -4089,6 +4092,15 @@ a:focus-visible {
   background: var(--surface);
   box-shadow: var(--shadow-sm);
 }
+
+.scene-token-grip { display: grid; place-items: center; color: var(--muted); cursor: grab; }
+.scene-token-position { color: var(--muted); font-size: .65rem; font-weight: 800; text-align: center; }
+
+.scene-token-initiative { display: grid; justify-items: center; gap: 2px; color: var(--muted); font-size: .52rem; font-weight: 800; }
+.scene-token-initiative input { width: 44px; height: 32px; padding: 0 3px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-2); color: var(--text); font: inherit; font-size: .72rem; text-align: center; }
+.scene-token-stage-buttons { display: flex; gap: 3px; margin-top: 3px; }
+.scene-token-stage-buttons button { min-width: 21px; height: 20px; padding: 0 5px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--muted); font: inherit; font-size: .57rem; font-weight: 800; cursor: pointer; }
+.scene-token-stage-buttons button.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 
 .scene-token-thumb {
   position: relative;
@@ -4159,7 +4171,8 @@ a:focus-visible {
 .scene-token-empty p { max-width: 30ch; margin: 0; font-size: 0.74rem; line-height: 1.5; }
 
 @container (max-width: 440px) {
-  .scene-token-row { grid-template-columns: 48px minmax(0, 1fr) 42px 42px; }
+  .scene-token-row { grid-template-columns: 15px 18px 44px minmax(0, 1fr) 40px 38px 38px; gap: 5px; }
+  .scene-token-initiative input { width: 38px; }
   .scene-token-action { width: 42px; min-height: 42px; padding: 0; }
   .scene-token-action span { display: none; }
   .sheet-token-config { grid-template-columns: 1fr; }
