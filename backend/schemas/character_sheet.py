@@ -11,6 +11,13 @@ from pydantic import BaseModel, Field
 SheetFieldType = Literal["text", "number", "checkbox", "textarea", "image"]
 
 
+class TokenStageOut(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=120)
+    image_url: str
+    order: int = Field(ge=0)
+
+
 class SheetFieldOut(BaseModel):
     key: str
     label: str
@@ -31,6 +38,7 @@ class CharacterSheetOut(BaseModel):
     page_count: int
     fields: list[SheetFieldOut]
     values: dict[str, Any]
+    token_stages: list[TokenStageOut] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

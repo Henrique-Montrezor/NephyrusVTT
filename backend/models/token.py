@@ -64,6 +64,10 @@ class Token(Base):
     # Condições ativas (chaves separadas por vírgula: "bleeding,dead").
     conditions: Mapped[str] = mapped_column(String, default="")
 
+    active_stage: Mapped[int] = mapped_column(Integer, default=0)
+    initiative: Mapped[int] = mapped_column(Integer, default=0)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
     scene: Mapped["Scene | None"] = relationship("Scene", back_populates="tokens")
 
 

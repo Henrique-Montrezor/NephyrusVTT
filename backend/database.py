@@ -72,6 +72,34 @@ def _run_light_migrations() -> None:
                 )
     with engine.begin() as conn:
         _migrate_token_catalog(conn)
+        _migrate_workspace_state(conn)
+
+
+def _migrate_workspace_state(connection: object) -> None:
+    """Adiciona estados persistentes de ficha, token e cena sem perder dados."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(connection)
+    tables = set(inspector.get_table_names())
+    additions = {
+        "tokens": (
+            ("active_stage", "INTEGER DEFAULT 0 NOT NULL"),
+            ("initiative", "INTEGER DEFAULT 0 NOT NULL"),
+            ("sort_order", "INTEGER DEFAULT 0 NOT NULL"),
+        ),
+        "scenes": (
+            ("map_stages_json", "TEXT DEFAULT '[]' NOT NULL"),
+            ("active_map_stage", "INTEGER DEFAULT 0 NOT NULL"),
+        ),
+        "character_sheets": (("token_stages_json", "TEXT DEFAULT '[]' NOT NULL"),),
+    }
+    for table, columns in additions.items():
+        if table not in tables:
+            continue
+        existing = {column["name"] for column in inspector.get_columns(table)}
+        for name, definition in columns:
+            if name not in existing:
+                connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {definition}"))
 
 
 def _migrate_token_catalog(connection: object) -> None:

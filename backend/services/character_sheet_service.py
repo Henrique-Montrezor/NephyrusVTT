@@ -160,6 +160,7 @@ def _output(sheet: CharacterSheet, owner_name: str) -> CharacterSheetOut:
         page_count=sheet.page_count,
         fields=[SheetFieldOut.model_validate(item) for item in json.loads(sheet.fields_json)],
         values=json.loads(sheet.values_json),
+        token_stages=json.loads(sheet.token_stages_json or "[]"),
         created_at=sheet.created_at,
         updated_at=sheet.updated_at,
     )

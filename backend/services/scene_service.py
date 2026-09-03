@@ -7,6 +7,7 @@ Para a escala local (SQLite, poucos jogadores) o uso síncrono é adequado.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -701,6 +702,8 @@ def _to_scene_out(scene: Scene) -> SceneOut:
         name=scene.name,
         is_active=scene.is_active,
         background_url=scene.background_url,
+        map_stages=json.loads(scene.map_stages_json or "[]"),
+        active_map_stage=scene.active_map_stage,
         width=scene.width,
         height=scene.height,
         grid=GridOut(

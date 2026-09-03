@@ -6,7 +6,7 @@ métrico. Os tokens pertencem a uma cena.
 
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Float, Integer, String
+from sqlalchemy import Boolean, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.database import Base
@@ -24,6 +24,8 @@ class Scene(Base):
 
     # Fundo (mapa). Na Fase 2 usamos uma URL fixa/exemplo; upload virá na Fase 3.
     background_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    map_stages_json: Mapped[str] = mapped_column(Text, default="[]")
+    active_map_stage: Mapped[int] = mapped_column(Integer, default=0)
     width: Mapped[int] = mapped_column(Integer, default=1600)
     height: Mapped[int] = mapped_column(Integer, default=1200)
 

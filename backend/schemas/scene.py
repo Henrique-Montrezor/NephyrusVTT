@@ -25,6 +25,9 @@ class TokenOut(BaseModel):
     is_locked: bool = False
     light_radius: float = 0.0
     conditions: list[str] = Field(default_factory=list)
+    active_stage: int = 0
+    initiative: int = 0
+    sort_order: int = 0
 
     @field_validator("conditions", mode="before")
     @classmethod
@@ -47,6 +50,13 @@ class FogOut(BaseModel):
     cells: list[tuple[int, int]] = Field(default_factory=list)
 
 
+class MapStageOut(BaseModel):
+    id: str
+    name: str
+    image_url: str
+    order: int = Field(ge=0)
+
+
 class SceneOut(BaseModel):
     """Estado completo da cena para bootstrap/render."""
 
@@ -55,6 +65,8 @@ class SceneOut(BaseModel):
     name: str
     is_active: bool = False
     background_url: str | None
+    map_stages: list[MapStageOut] = Field(default_factory=list)
+    active_map_stage: int = 0
     width: int
     height: int
     grid: GridOut

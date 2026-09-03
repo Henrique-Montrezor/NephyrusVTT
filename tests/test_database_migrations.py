@@ -8,10 +8,30 @@ from tempfile import TemporaryDirectory
 
 from sqlalchemy import create_engine, inspect, text
 
-from backend.database import _migrate_token_catalog
+from backend.database import _migrate_token_catalog, _migrate_workspace_state
 
 
 class DatabaseMigrationTest(unittest.TestCase):
+    def test_workspace_state_migration_adds_stage_and_initiative_columns(self) -> None:
+        with TemporaryDirectory(prefix="nephyrus-workspace-migration-") as directory:
+            legacy = create_engine(f"sqlite:///{Path(directory) / 'legacy.db'}")
+            with legacy.begin() as connection:
+                connection.execute(text("CREATE TABLE tokens (id INTEGER PRIMARY KEY)"))
+                connection.execute(text("CREATE TABLE scenes (id INTEGER PRIMARY KEY)"))
+                connection.execute(text("CREATE TABLE character_sheets (id VARCHAR PRIMARY KEY)"))
+                _migrate_workspace_state(connection)
+
+            token_columns = {column["name"] for column in inspect(legacy).get_columns("tokens")}
+            scene_columns = {column["name"] for column in inspect(legacy).get_columns("scenes")}
+            sheet_columns = {column["name"] for column in inspect(legacy).get_columns("character_sheets")}
+            self.assertTrue({"active_stage", "initiative", "sort_order"} <= token_columns)
+            self.assertTrue({"map_stages_json", "active_map_stage"} <= scene_columns)
+            self.assertIn("token_stages_json", sheet_columns)
+
+            with legacy.begin() as connection:
+                _migrate_workspace_state(connection)
+            legacy.dispose()
+
     def test_token_catalog_migration_preserves_existing_token(self) -> None:
         with TemporaryDirectory(prefix="nephyrus-migration-") as directory:
             legacy = create_engine(f"sqlite:///{Path(directory) / 'legacy.db'}")

@@ -22,6 +22,7 @@ class CharacterSheet(Base):
     page_count: Mapped[int] = mapped_column(Integer, default=1)
     fields_json: Mapped[str] = mapped_column(Text, default="[]")
     values_json: Mapped[str] = mapped_column(Text, default="{}")
+    token_stages_json: Mapped[str] = mapped_column(Text, default="[]")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
