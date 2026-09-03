@@ -1197,6 +1197,12 @@ export class TableEngine {
     this.world.y = this.app.screen.height / 2 - worldY * scale;
   }
 
+  clientToWorld(clientX: number, clientY: number): Vec2 {
+    if (!this.app || !this.world) return { x: 0, y: 0 };
+    const rect = this.app.canvas.getBoundingClientRect();
+    return this.world.toLocal(new Point(clientX - rect.left, clientY - rect.top));
+  }
+
   /** Atualiza a cor de fundo da Mesa (usado ao alternar o tema). */
   setBackgroundColor(cssColor: string | number): void {
     if (this.app?.renderer) this.app.renderer.background.color = cssColor;

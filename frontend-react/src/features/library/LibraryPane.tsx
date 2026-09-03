@@ -13,7 +13,8 @@ import { MESSAGE_TYPES } from "@/net/message-types";
 import { session } from "@/session";
 import { Icon } from "@/ui/Icon";
 import { ICONS } from "@/lib/token-icons";
-import { libraryPlacement } from "@/features/tokens/token-flow";
+import { cleanAssetName, libraryPlacement } from "@/features/tokens/token-flow";
+import { writeTokenDrag } from "@/features/tokens/token-dnd";
 
 type SortMode = "name" | "recent";
 type Editing = { type: "asset" | "folder"; id: number; value: string } | null;
@@ -200,7 +201,7 @@ export function LibraryPane() {
       setBusy(true);
       try {
         const token = await session.value?.table.createCatalogToken({
-          name: asset.original_name.replace(/\.[^.]+$/, ""),
+          name: cleanAssetName(asset.original_name),
           image_url: asset.url,
           width: 64,
           height: 64,
@@ -406,7 +407,23 @@ export function LibraryPane() {
                 const deleting = confirmDelete === `asset-${asset.id}`;
                 return (
                   <div key={`asset-${asset.id}`} class="library-row">
-                    <a class="library-row-main" href={asset.url} target="_blank" rel="noopener noreferrer" title={`Abrir ${asset.original_name}`}>
+                    <a
+                      class="library-row-main"
+                      href={asset.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Abrir ${asset.original_name}`}
+                      draggable={asset.kind === "token"}
+                      onDragStart={(event) => {
+                        if (asset.kind === "token" && event.dataTransfer) {
+                          writeTokenDrag(event.dataTransfer, {
+                            source: "asset",
+                            name: asset.original_name,
+                            imageUrl: asset.url,
+                          });
+                        }
+                      }}
+                    >
                       {asset.kind === "map" || asset.kind === "token" ? (
                         <span class="library-file-icon is-thumb" style={{ backgroundImage: `url("${asset.url}")` }} />
                       ) : (

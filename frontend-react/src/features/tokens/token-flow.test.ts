@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findSheetToken, libraryPlacement } from "./token-flow";
+import { cleanAssetName, findSheetToken, libraryPlacement } from "./token-flow";
 
 describe("token flow", () => {
   it("finds the token linked to the selected sheet", () => {
@@ -15,4 +15,9 @@ describe("token flow", () => {
     expect(libraryPlacement("map")).toBe("map");
     expect(libraryPlacement("pdf")).toBeNull();
   });
+
+  it.each(["hero.png", "hero.JPG", "hero.jpeg", "hero.webp", "hero.gif", "hero.avif"])(
+    "removes the image extension from %s",
+    (name) => expect(cleanAssetName(name)).toBe("hero"),
+  );
 });

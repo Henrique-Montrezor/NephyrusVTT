@@ -8,3 +8,6 @@ export function findSheetToken<T extends { sheet_id?: string | null }>(
 export function libraryPlacement(kind: string): "map" | "token" | null {
   return kind === "map" || kind === "token" ? kind : null;
 }
+
+export const cleanAssetName = (name: string): string =>
+  name.replace(/\.(png|jpe?g|webp|gif|avif)$/i, "");

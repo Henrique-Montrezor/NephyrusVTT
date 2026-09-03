@@ -6,6 +6,9 @@
 import { useEffect, useRef } from "preact/hooks";
 import { TableEngine } from "@/engine/table-engine";
 import { InputEngine } from "@/engine/input";
+import { readTokenDrag } from "@/features/tokens/token-dnd";
+import { cleanAssetName } from "@/features/tokens/token-flow";
+import { session } from "@/session";
 
 export interface TableStageProps {
   onReady?: (engine: TableEngine, input: InputEngine) => void;
@@ -41,5 +44,32 @@ export function TableStage({ onReady }: TableStageProps) {
     };
   }, []);
 
-  return <div id="stage" class="table-canvas" ref={mountRef} />;
+  return (
+    <div
+      id="stage"
+      class="table-canvas"
+      ref={mountRef}
+      onDragOver={(event) => {
+        if (event.dataTransfer && readTokenDrag(event.dataTransfer)) event.preventDefault();
+      }}
+      onDrop={(event) => {
+        const transfer = event.dataTransfer;
+        const table = session.value?.table;
+        const payload = transfer ? readTokenDrag(transfer) : null;
+        if (!payload || !table) return;
+        event.preventDefault();
+        const point = table.enginePointFromClient(event.clientX, event.clientY);
+        if (payload.source === "catalog") {
+          table.placeToken(payload.id, point.x, point.y);
+          return;
+        }
+        void table.createCatalogToken({
+          name: cleanAssetName(payload.name),
+          image_url: payload.imageUrl,
+          width: 64,
+          height: 64,
+        }).then((token) => table.placeToken(token.id, point.x, point.y));
+      }}
+    />
+  );
 }

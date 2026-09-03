@@ -264,6 +264,10 @@ export class TableController {
     ws.send(MESSAGE_TYPES.TOKEN_UPDATE, payload);
   }
 
+  enginePointFromClient(clientX: number, clientY: number): { x: number; y: number } {
+    return this.engine.clientToWorld(clientX, clientY);
+  }
+
   setTokenStage(tokenId: number, activeStage: number): void {
     this.updateToken(tokenId, { active_stage: activeStage });
   }
