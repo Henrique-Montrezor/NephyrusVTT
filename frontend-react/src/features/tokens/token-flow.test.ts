@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanAssetName, findSheetToken, libraryPlacement, reorderTokens, sheetCards, sortInitiative } from "./token-flow";
+import { cleanAssetName, findSheetToken, libraryPlacement, partitionPdfFields, reorderTokens, sheetCards, sortInitiative } from "./token-flow";
 
 describe("token flow", () => {
   it("finds the token linked to the selected sheet", () => {
@@ -46,5 +46,16 @@ describe("token flow", () => {
     const tokens = [{ id: 1 }, { id: 2 }, { id: 3 }];
     expect(reorderTokens(tokens, 3, 1).map((token) => token.id)).toEqual([3, 1, 2]);
     expect(tokens.map((token) => token.id)).toEqual([1, 2, 3]);
+  });
+
+  it("separates positioned PDF fields from noisy unmapped fields", () => {
+    const fields = [
+      { key: "forca", label: "Força", rect: [10, 10, 20, 5] as [number, number, number, number] },
+      { key: "untitled1", label: "untitled1", rect: [0, 0, 10, 4] as [number, number, number, number] },
+      { key: "sem_area", label: "Vigor", rect: [0, 0, 0, 0] as [number, number, number, number] },
+    ];
+    const result = partitionPdfFields(fields);
+    expect(result.mapped.map((field) => field.key)).toEqual(["forca"]);
+    expect(result.unmapped.map((field) => field.key)).toEqual(["untitled1", "sem_area"]);
   });
 });

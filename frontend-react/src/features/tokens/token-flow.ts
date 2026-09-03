@@ -34,3 +34,13 @@ export function reorderTokens<T extends { id: number }>(tokens: T[], tokenId: nu
   next.splice(target < 0 ? next.length : target, 0, moved);
   return next;
 }
+
+export function partitionPdfFields<T extends { label: string; rect: [number, number, number, number] }>(fields: T[]): { mapped: T[]; unmapped: T[] } {
+  const mapped: T[] = [];
+  const unmapped: T[] = [];
+  for (const field of fields) {
+    const target = field.rect[2] > 0 && field.rect[3] > 0 && !/^untitled\d*$/i.test(field.label.trim()) ? mapped : unmapped;
+    target.push(field);
+  }
+  return { mapped, unmapped };
+}

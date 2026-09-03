@@ -5218,6 +5218,12 @@ a:focus-visible {
   white-space: nowrap;
 }
 
+.system-overview-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 14px 14px; }
+.system-overview-stats > div { min-height: 66px; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); }
+.system-overview-stats strong { color: var(--text); font-size: 1.05rem; }
+.system-overview-stats svg { color: var(--accent); }
+.system-overview-stats span { color: var(--muted); font-size: .65rem; }
+
 .system-template-modal {
   min-width: 0;
   min-height: 0;
@@ -5358,6 +5364,22 @@ a:focus-visible {
   border-radius: 9px;
   background: var(--surface-2);
 }
+
+.system-roll.active { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); }
+.system-roll-toggle { display: grid; grid-template-columns: minmax(0, 1fr) 92px; align-items: center; gap: 10px; }
+.system-roll-toggle > label:first-child { display: flex; flex-direction: row; align-items: center; gap: 9px; }
+.system-roll-toggle input[type="checkbox"] { width: 19px; height: 19px; accent-color: var(--accent); }
+.system-roll-toggle > label:first-child span { min-width: 0; display: grid; gap: 2px; }
+.system-roll-toggle strong, .system-roll-toggle code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.system-roll-toggle strong { color: var(--text); font-size: .75rem; }
+.system-roll-toggle code { color: var(--accent); font-size: .63rem; }
+.system-roll-toggle select { min-height: 38px; }
+.system-roll > p { margin: 9px 0 0 28px; color: var(--muted); font-size: .67rem; }
+.system-roll > p strong { color: var(--accent); }
+
+.system-configurator-footer { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 9px; border-top: 1px solid var(--border); }
+.system-configurator-footer span { min-width: 0; overflow: hidden; color: var(--muted); font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
+.system-configurator-footer button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
 
 .system-roll-head {
   display: flex;
